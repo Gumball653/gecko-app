@@ -1,47 +1,54 @@
 import React, { useState } from "react";
 
-const LOGIN_STORAGE_KEY = "reptile-notes-login-session-v1";
-const APP_USERNAME = "admin";
-const APP_PASSWORD = "reptilenotes";
+const LOGIN_STORAGE_KEY = "reptile-notes-session-token";
 
 export default function LoginGate({ children }) {
-  const [isLoggedIn, setIsLoggedIn] = useState(() => window.localStorage.getItem(LOGIN_STORAGE_KEY) === "true");
+  const [token, setToken] = useState(() => window.localStorage.getItem(LOGIN_STORAGE_KEY));
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
 
-  function handleLogin(event) {
-    event.preventDefault();
+  async function handleLogin(e) {
+    e.preventDefault();
+    setLoading(true);
+    setError("");
 
-    if (username.trim() === APP_USERNAME && password === APP_PASSWORD) {
-      window.localStorage.setItem(LOGIN_STORAGE_KEY, "true");
-      setIsLoggedIn(true);
-      setError("");
+    try {
+      const res = await fetch("/api/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ username, password }),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok || !data.ok) {
+        throw new Error(data.message || "Login failed");
+      }
+
+      window.localStorage.setItem(LOGIN_STORAGE_KEY, data.token);
+      setToken(data.token);
       setPassword("");
-      return;
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
     }
-
-    setError("Incorrect username or password.");
   }
 
   function handleLogout() {
     window.localStorage.removeItem(LOGIN_STORAGE_KEY);
-    setIsLoggedIn(false);
+    setToken(null);
     setUsername("");
     setPassword("");
   }
 
-  if (isLoggedIn) {
+  if (token) {
     return (
       <>
         <div className="fixed right-3 top-3 z-50">
-          <button
-            type="button"
-            onClick={handleLogout}
-            className="rounded-xl border border-slate-300 bg-white/95 px-3 py-2 text-sm font-semibold text-slate-800 shadow-sm backdrop-blur hover:bg-slate-50"
-          >
-            Log out
-          </button>
+          <button onClick={handleLogout} className="rounded-xl border px-3 py-2">Log out</button>
         </div>
         {children}
       </>
@@ -49,54 +56,19 @@ export default function LoginGate({ children }) {
   }
 
   return (
-    <main className="flex min-h-screen items-center justify-center bg-slate-100 px-4 py-10 text-slate-900">
-      <section className="w-full max-w-md rounded-3xl border border-slate-200 bg-white p-6 shadow-xl sm:p-8">
-        <div className="mb-6 text-center">
-          <p className="text-sm font-semibold uppercase tracking-[0.25em] text-slate-500">Private Access</p>
-          <h1 className="mt-2 text-3xl font-bold text-slate-950">Reptile Notes</h1>
-          <p className="mt-2 text-sm text-slate-600">Log in to view and manage your reptile records.</p>
-        </div>
+    <main className="flex min-h-screen items-center justify-center">
+      <form onSubmit={handleLogin} className="space-y-4 bg-white p-6 rounded-xl shadow">
+        <h2 className="text-xl font-bold">Login</h2>
 
-        <form className="space-y-4" onSubmit={handleLogin}>
-          <label className="block text-sm font-semibold text-slate-700">
-            Username
-            <input
-              value={username}
-              onChange={(event) => setUsername(event.target.value)}
-              className="mt-1 w-full rounded-xl border border-slate-300 px-3 py-3 text-base outline-none focus:border-slate-500"
-              autoComplete="username"
-              required
-            />
-          </label>
+        <input value={username} onChange={e => setUsername(e.target.value)} placeholder="Username" required className="border p-2 w-full" />
+        <input type="password" value={password} onChange={e => setPassword(e.target.value)} placeholder="Password" required className="border p-2 w-full" />
 
-          <label className="block text-sm font-semibold text-slate-700">
-            Password
-            <input
-              value={password}
-              onChange={(event) => setPassword(event.target.value)}
-              className="mt-1 w-full rounded-xl border border-slate-300 px-3 py-3 text-base outline-none focus:border-slate-500"
-              type="password"
-              autoComplete="current-password"
-              required
-            />
-          </label>
+        {error && <p className="text-red-500 text-sm">{error}</p>}
 
-          {error && <p className="rounded-xl bg-red-50 px-3 py-2 text-sm font-medium text-red-700">{error}</p>}
-
-          <button
-            type="submit"
-            className="w-full rounded-xl bg-slate-950 px-4 py-3 text-base font-bold text-white transition hover:bg-slate-800"
-          >
-            Log in
-          </button>
-        </form>
-
-        <div className="mt-6 rounded-2xl bg-slate-50 p-4 text-sm text-slate-600">
-          <p className="font-semibold text-slate-800">Default login</p>
-          <p className="mt-1">Username: <span className="font-mono">admin</span></p>
-          <p>Password: <span className="font-mono">reptilenotes</span></p>
-        </div>
-      </section>
+        <button type="submit" disabled={loading} className="bg-black text-white px-4 py-2 w-full">
+          {loading ? "Logging in..." : "Login"}
+        </button>
+      </form>
     </main>
   );
 }
