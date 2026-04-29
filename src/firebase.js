@@ -1,5 +1,7 @@
 import { initializeApp } from "firebase/app";
 import { getAuth } from "firebase/auth";
+import { getFirestore, enableIndexedDbPersistence } from "firebase/firestore";
+import { getStorage } from "firebase/storage";
 
 export const firebaseConfig = {
   apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
@@ -16,10 +18,18 @@ export const firebaseConfigMissing = Object.entries(firebaseConfig).some(
 
 let app = null;
 let auth = null;
+let db = null;
+let storage = null;
 
 if (!firebaseConfigMissing) {
   app = initializeApp(firebaseConfig);
   auth = getAuth(app);
+  db = getFirestore(app);
+  storage = getStorage(app);
+
+  enableIndexedDbPersistence(db).catch(() => {
+    // Offline persistence may fail in private browsing or multiple open tabs.
+  });
 }
 
-export { app, auth };
+export { app, auth, db, storage };
