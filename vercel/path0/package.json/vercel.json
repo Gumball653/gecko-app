@@ -3,7 +3,7 @@
   "name": "test-app",
   "builds": [
       {"src": "app.js", "use": "@vercel/node"
- ],
+   ],
   "routes": [
       { "source": "/(.*)", "destination": "/index.html" }
   ]
