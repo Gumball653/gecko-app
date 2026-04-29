@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { motion } from "framer-motion";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -11,6 +11,35 @@ const SEX_OPTIONS = ["Unknown", "Male", "Female"];
 const EXCREMENT_OPTIONS = ["None observed", "Normal", "Loose", "Urates only", "Abnormal", "Other"];
 const STATUS_OPTIONS = ["Active", "Inactive"];
 const INACTIVE_REASON_OPTIONS = ["Sold", "Death", "Transferred", "Retired", "Holdback", "Other"];
+const STORAGE_KEY = "reptile-notes-animal-tracker-v1";
+const APP_NAME = "Reptile Notes";
+const APP_VERSION = "1.0.0";
+
+function loadSavedAppState() {
+  if (typeof window === "undefined") return null;
+  try {
+    const raw = window.localStorage.getItem(STORAGE_KEY);
+    return raw ? JSON.parse(raw) : null;
+  } catch {
+    return null;
+  }
+}
+
+function saveAppState(state) {
+  if (typeof window === "undefined") return;
+  try {
+    window.localStorage.setItem(STORAGE_KEY, JSON.stringify({ ...state, version: APP_VERSION, savedAt: new Date().toISOString() }));
+  } catch {
+    window.sessionStorage.setItem(STORAGE_KEY, JSON.stringify({ ...state, version: APP_VERSION, savedAt: new Date().toISOString() }));
+  }
+}
+
+function registerServiceWorker() {
+  if (typeof window === "undefined" || !("serviceWorker" in navigator)) return;
+  window.addEventListener("load", () => {
+    navigator.serviceWorker.register("/sw.js").catch(() => undefined);
+  });
+}
 
 function clone(value) {
   return JSON.parse(JSON.stringify(value));
@@ -406,7 +435,7 @@ function runSelfTests() {
   console.assert(getPedigreeNameAtPath(deepPedigree, ["sire", "dam", "sire", "dam"]) === "Fourth Gen Ancestor", "fourth generation pedigree works");
 }
 
-if (typeof window !== "undefined" && !window.__ANIMAL_QR_TRACKER_TESTED__) {
+if (typeof window !== "undefined" && import.meta.env?.DEV && !window.__ANIMAL_QR_TRACKER_TESTED__) {
   window.__ANIMAL_QR_TRACKER_TESTED__ = true;
   runSelfTests();
 }
@@ -566,10 +595,13 @@ function PedigreeInput({ pedigree, path, label, onChange }) {
   return <Field label={label}><Input value={getPedigreeNameAtPath(pedigree, path)} onChange={(event) => onChange(path, event.target.value)} /></Field>;
 }
 
+
+
 export default function AnimalQrTrackingApp() {
-  const [animals, setAnimals] = useState(initialAnimals.map((animal) => ({ ...animal, _lastSaved: getProfileSnapshot(animal) })));
-  const [breedingGroups, setBreedingGroups] = useState(initialBreedingGroups);
-  const [housingLocations, setHousingLocations] = useState(initialHousingLocations);
+  const savedState = loadSavedAppState();
+  const [animals, setAnimals] = useState(() => savedState?.animals || initialAnimals.map((animal) => ({ ...animal, _lastSaved: getProfileSnapshot(animal) })));
+  const [breedingGroups, setBreedingGroups] = useState(() => savedState?.breedingGroups || initialBreedingGroups);
+  const [housingLocations, setHousingLocations] = useState(() => savedState?.housingLocations || initialHousingLocations);
   const [selectedId, setSelectedId] = useState("A-001");
   const [query, setQuery] = useState("");
   const [activeTab, setActiveTab] = useState("profile");
@@ -583,6 +615,11 @@ export default function AnimalQrTrackingApp() {
   const [locationLogDraft, setLocationLogDraft] = useState({ type: "scan", summary: "" });
   const [groupDraft, setGroupDraft] = useState({ name: "", animalIds: [], notes: "" });
   const [photoDraft, setPhotoDraft] = useState({ title: "", note: "" });
+  const [cameraMessage, setCameraMessage] = useState("");
+  const [isScanning, setIsScanning] = useState(false);
+  const [installPrompt, setInstallPrompt] = useState(null);
+  const videoRef = useRef(null);
+  const streamRef = useRef(null);
 
   const selected = animals.find((animal) => animal.id === selectedId) || animals[0];
   const animalMap = useMemo(() => Object.fromEntries(animals.map((animal) => [animal.id, animal])), [animals]);
@@ -596,6 +633,27 @@ export default function AnimalQrTrackingApp() {
       .toLowerCase()
       .includes(query.toLowerCase())
   );
+
+  useEffect(() => {
+    saveAppState({ animals, breedingGroups, housingLocations });
+  }, [animals, breedingGroups, housingLocations]);
+
+  useEffect(() => {
+    registerServiceWorker();
+  }, []);
+
+  useEffect(() => {
+    function handleBeforeInstallPrompt(event) {
+      event.preventDefault();
+      setInstallPrompt(event);
+    }
+    window.addEventListener("beforeinstallprompt", handleBeforeInstallPrompt);
+    return () => window.removeEventListener("beforeinstallprompt", handleBeforeInstallPrompt);
+  }, []);
+
+  useEffect(() => {
+    return () => stopCameraScanner();
+  }, []);
 
   function updateSelected(path, value) {
     setAnimals((prev) => prev.map((animal) => {
@@ -677,14 +735,14 @@ export default function AnimalQrTrackingApp() {
     }));
   }
 
-  function scanQr() {
-    const normalized = scanValue.trim().toLowerCase();
+  function openScannedCode(value) {
+    const normalized = String(value || "").trim().toLowerCase();
     const animalMatch = animals.find((animal) => animal.qrCode.toLowerCase() === normalized || animal.id.toLowerCase() === normalized);
     if (animalMatch) {
       setSelectedId(animalMatch.id);
       setActiveTab(animalMatch.stage === "egg" ? "egg" : "profile");
       setScanMessage(`Opened ${animalMatch.name}.`);
-      return;
+      return true;
     }
     const locationMatch = housingLocations.find((location) => location.qrCode.toLowerCase() === normalized || location.id.toLowerCase() === normalized);
     if (locationMatch) {
@@ -692,9 +750,66 @@ export default function AnimalQrTrackingApp() {
       setActiveTab("locations");
       setScanMessage(`Opened housing location ${locationMatch.name}.`);
       addHousingLocationLog(locationMatch.id, "scan", `QR scanned for ${locationMatch.name}`);
-      return;
+      return true;
     }
     setScanMessage("No animal, egg, or housing location matched that QR code.");
+    return false;
+  }
+
+  function scanQr() {
+    openScannedCode(scanValue);
+  }
+
+  async function startCameraScanner() {
+    if (!window.isSecureContext) {
+      setCameraMessage("Camera scanning requires HTTPS. Deploy to https://reptilenotes.com or use localhost while testing.");
+      return;
+    }
+    if (!navigator.mediaDevices?.getUserMedia) {
+      setCameraMessage("Camera access is not available in this browser. Type or paste the QR code instead.");
+      return;
+    }
+    if (!("BarcodeDetector" in window)) {
+      setCameraMessage("Camera QR scanning is not supported in this browser. Type or paste the QR code instead.");
+      return;
+    }
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } });
+      streamRef.current = stream;
+      if (videoRef.current) videoRef.current.srcObject = stream;
+      setIsScanning(true);
+      setCameraMessage("Camera scanner started. Point at an animal or housing QR code.");
+      const detector = new window.BarcodeDetector({ formats: ["qr_code"] });
+      const tick = async () => {
+        if (!streamRef.current || !videoRef.current) return;
+        try {
+          const codes = await detector.detect(videoRef.current);
+          if (codes.length > 0) {
+            const value = codes[0].rawValue;
+            setScanValue(value);
+            if (openScannedCode(value)) stopCameraScanner();
+          }
+        } catch {}
+        if (streamRef.current) requestAnimationFrame(tick);
+      };
+      requestAnimationFrame(tick);
+    } catch {
+      setCameraMessage("Camera access was blocked or unavailable.");
+    }
+  }
+
+  function stopCameraScanner() {
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach((track) => track.stop());
+      streamRef.current = null;
+    }
+    setIsScanning(false);
+  }
+
+  async function installApp() {
+    if (!installPrompt) return;
+    await installPrompt.prompt();
+    setInstallPrompt(null);
   }
 
   function addHousingLocation() {
@@ -870,8 +985,9 @@ export default function AnimalQrTrackingApp() {
     <div className="min-h-screen bg-slate-50 p-3 pb-24 text-slate-900 sm:p-4 md:p-8">
       <div className="mx-auto max-w-7xl space-y-6">
         <header className="flex flex-col gap-4 rounded-3xl bg-slate-900 p-4 text-white shadow-xl sm:p-6 md:flex-row md:items-center md:justify-between">
+          
           <div>
-            <p className="text-sm uppercase tracking-[0.3em] text-slate-300">QR Animal Keeper</p>
+            <p className="text-sm uppercase tracking-[0.3em] text-slate-300">{APP_NAME}</p>
             <h1 className="mt-2 text-2xl font-bold leading-tight sm:text-3xl md:text-5xl">Animal tracking, husbandry, breeding, and pedigree records</h1>
             <p className="mt-3 max-w-3xl text-sm text-slate-300 sm:text-base">Scan a QR code, open the exact animal or egg profile, and preserve every record even when an animal is sold, deceased, transferred, or retired.</p>
           </div>
@@ -887,7 +1003,13 @@ export default function AnimalQrTrackingApp() {
                   <Input value={scanValue} onChange={(event) => setScanValue(event.target.value)} placeholder="Scan or type QR-A-001" />
                   <Button onClick={scanQr} className="rounded-xl">Open</Button>
                 </div>
-                <p className="text-xs text-slate-500">Prototype scanner accepts animal ID, location ID, or QR code value.</p>
+                <div className="grid gap-2 sm:grid-cols-2">
+                  <Button variant="outline" onClick={isScanning ? stopCameraScanner : startCameraScanner} className="rounded-xl">{isScanning ? "Stop camera" : "Camera scan"}</Button>
+                  <Button variant="outline" onClick={installApp} className="rounded-xl" disabled={!installPrompt}>Install app</Button>
+                </div>
+                {isScanning && <video ref={videoRef} autoPlay muted playsInline className="h-48 w-full rounded-2xl bg-slate-900 object-cover" />}
+                {cameraMessage && <p className="rounded-xl bg-slate-100 px-3 py-2 text-xs text-slate-700">{cameraMessage}</p>}
+                <p className="text-xs text-slate-500">Scanner accepts animal ID, location ID, QR value, or camera QR scan when supported.</p>
                 {scanMessage && <p className="rounded-xl bg-slate-100 px-3 py-2 text-xs text-slate-700">{scanMessage}</p>}
               </CardContent>
             </Card>
