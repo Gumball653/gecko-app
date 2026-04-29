@@ -5,5 +5,5 @@
   "display": "standalone",
   "background_color": "#f8fafc",
   "theme_color": "#0f172a",
-  "icons": []
+  "description": "Track reptile husbandry, housing, breeding, eggs, pedigree, and QR records."
 }
