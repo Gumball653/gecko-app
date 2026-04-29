@@ -1,7 +1,7 @@
 import { initializeApp } from "firebase/app";
 import { getAuth } from "firebase/auth";
 
-const firebaseConfig = {
+export const firebaseConfig = {
   apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
   authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
   projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID,
@@ -10,5 +10,16 @@ const firebaseConfig = {
   appId: import.meta.env.VITE_FIREBASE_APP_ID,
 };
 
-const app = initializeApp(firebaseConfig);
-export const auth = getAuth(app);
+export const firebaseConfigMissing = Object.entries(firebaseConfig).some(
+  ([, value]) => !value || String(value).startsWith("your_")
+);
+
+let app = null;
+let auth = null;
+
+if (!firebaseConfigMissing) {
+  app = initializeApp(firebaseConfig);
+  auth = getAuth(app);
+}
+
+export { app, auth };
