@@ -1,54 +1,55 @@
-import React, { useState } from "react";
-
-const LOGIN_STORAGE_KEY = "reptile-notes-session-token";
+import React, { useEffect, useState } from "react";
+import { auth } from "./firebase";
+import {
+  onAuthStateChanged,
+  signInWithEmailAndPassword,
+  createUserWithEmailAndPassword,
+  sendPasswordResetEmail,
+  signOut,
+} from "firebase/auth";
 
 export default function LoginGate({ children }) {
-  const [token, setToken] = useState(() => window.localStorage.getItem(LOGIN_STORAGE_KEY));
-  const [username, setUsername] = useState("");
+  const [user, setUser] = useState(null);
+  const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
-  const [loading, setLoading] = useState(false);
+  const [mode, setMode] = useState("login");
+
+  useEffect(() => {
+    return onAuthStateChanged(auth, (u) => setUser(u));
+  }, []);
 
   async function handleLogin(e) {
     e.preventDefault();
-    setLoading(true);
-    setError("");
-
     try {
-      const res = await fetch("/api/login", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ username, password }),
-      });
-
-      const data = await res.json();
-
-      if (!res.ok || !data.ok) {
-        throw new Error(data.message || "Login failed");
-      }
-
-      window.localStorage.setItem(LOGIN_STORAGE_KEY, data.token);
-      setToken(data.token);
-      setPassword("");
+      await signInWithEmailAndPassword(auth, email, password);
     } catch (err) {
       setError(err.message);
-    } finally {
-      setLoading(false);
     }
   }
 
-  function handleLogout() {
-    window.localStorage.removeItem(LOGIN_STORAGE_KEY);
-    setToken(null);
-    setUsername("");
-    setPassword("");
+  async function handleSignup() {
+    try {
+      await createUserWithEmailAndPassword(auth, email, password);
+    } catch (err) {
+      setError(err.message);
+    }
   }
 
-  if (token) {
+  async function handleReset() {
+    try {
+      await sendPasswordResetEmail(auth, email);
+      alert("Password reset email sent");
+    } catch (err) {
+      setError(err.message);
+    }
+  }
+
+  if (user) {
     return (
       <>
-        <div className="fixed right-3 top-3 z-50">
-          <button onClick={handleLogout} className="rounded-xl border px-3 py-2">Log out</button>
+        <div className="fixed top-3 right-3">
+          <button onClick={() => signOut(auth)}>Logout</button>
         </div>
         {children}
       </>
@@ -56,19 +57,28 @@ export default function LoginGate({ children }) {
   }
 
   return (
-    <main className="flex min-h-screen items-center justify-center">
-      <form onSubmit={handleLogin} className="space-y-4 bg-white p-6 rounded-xl shadow">
-        <h2 className="text-xl font-bold">Login</h2>
+    <div className="flex min-h-screen items-center justify-center">
+      <form onSubmit={handleLogin} className="bg-white p-6 rounded shadow space-y-3">
+        <h2>{mode === "login" ? "Login" : "Sign Up"}</h2>
 
-        <input value={username} onChange={e => setUsername(e.target.value)} placeholder="Username" required className="border p-2 w-full" />
-        <input type="password" value={password} onChange={e => setPassword(e.target.value)} placeholder="Password" required className="border p-2 w-full" />
+        <input placeholder="Email" value={email} onChange={e => setEmail(e.target.value)} required />
+        <input type="password" placeholder="Password" value={password} onChange={e => setPassword(e.target.value)} required />
 
-        {error && <p className="text-red-500 text-sm">{error}</p>}
+        {error && <p className="text-red-500">{error}</p>}
 
-        <button type="submit" disabled={loading} className="bg-black text-white px-4 py-2 w-full">
-          {loading ? "Logging in..." : "Login"}
+        {mode === "login" ? (
+          <button type="submit">Login</button>
+        ) : (
+          <button type="button" onClick={handleSignup}>Create Account</button>
+        )}
+
+        <button type="button" onClick={handleReset}>Forgot Password</button>
+
+        <button type="button" onClick={() => setMode(mode === "login" ? "signup" : "login")}
+        >
+          {mode === "login" ? "Create account" : "Back to login"}
         </button>
       </form>
-    </main>
+    </div>
   );
 }
