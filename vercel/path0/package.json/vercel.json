@@ -1,5 +1,10 @@
 {
-  "rewrites": [
-    { "source": "/(.*)", "destination": "/index.html" }
+  "version": 2,
+  "name": "test-app",
+  "builds": [
+      {"src": "app.js", "use": "@vercel/node"
+        ],
+  "routes": [
+      { "source": "/(.*)", "destination": "/index.html" }
   ]
 }
