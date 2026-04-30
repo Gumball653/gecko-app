@@ -11,7 +11,7 @@ export default function BottomNav() {
   }
 
   return (
-    <div className="fixed bottom-0 left-0 right-0 z-50 ios-blur border-t border-slate-200">
+    <div className="mobile-bottom-nav ios-blur border-t border-slate-200">
       <div className="mx-auto flex max-w-md justify-around py-4 text-sm font-semibold text-slate-800">
         <button onClick={vibrate}>Home</button>
         <button onClick={vibrate}>Animals</button>
