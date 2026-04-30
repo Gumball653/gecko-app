@@ -4,6 +4,7 @@ import App from "./App";
 import LoginGate from "./LoginGate";
 import ScannerLauncher from "./ScannerLauncher";
 import QrTargetIndexer from "./QrTargetIndexer";
+import QrPrintPanel from "./QrPrintPanel";
 import "./index.css";
 
 ReactDOM.createRoot(document.getElementById("root")).render(
@@ -12,6 +13,7 @@ ReactDOM.createRoot(document.getElementById("root")).render(
       <QrTargetIndexer />
       <App />
       <ScannerLauncher />
+      <QrPrintPanel />
     </LoginGate>
   </React.StrictMode>
 );
