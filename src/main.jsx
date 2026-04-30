@@ -7,7 +7,6 @@ import QrTargetIndexer from "./QrTargetIndexer";
 import QrPrintPanel from "./QrPrintPanel";
 import InstallPrompt from "./InstallPrompt";
 import AppShell from "./AppShell";
-import BottomNav from "./BottomNav";
 import ScanButtonBridge from "./ScanButtonBridge";
 import "./index.css";
 
@@ -21,7 +20,6 @@ ReactDOM.createRoot(document.getElementById("root")).render(
         <ScannerLauncher />
         <QrPrintPanel />
         <InstallPrompt />
-        <BottomNav />
       </LoginGate>
     </AppShell>
   </React.StrictMode>
