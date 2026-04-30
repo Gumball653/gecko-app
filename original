@@ -1168,10 +1168,9 @@ export default function AnimalQrTrackingApp() {
       </div>
 
       {showQr && selected && (
-        <ProfileQrModal
-          selected={selected}
-          onClose={() => setShowQr(false)}
-        />
+        <div className="fixed inset-0 ...">
+        ...
+        </div>
       )}
 
       {showLocationQr && selectedLocation && (
