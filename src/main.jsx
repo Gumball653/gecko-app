@@ -7,19 +7,22 @@ import QrTargetIndexer from "./QrTargetIndexer";
 import QrPrintPanel from "./QrPrintPanel";
 import MobilePhotoUploader from "./MobilePhotoUploader";
 import InstallPrompt from "./InstallPrompt";
+import AppShell from "./AppShell";
 import "./index.css";
 
 ReactDOM.createRoot(document.getElementById("root")).render(
   <React.StrictMode>
-    <LoginGate>
-      <QrTargetIndexer />
-      <App />
-      <ScannerLauncher />
-      <QrPrintPanel />
-      <InstallPrompt />
-      <div className="fixed bottom-4 left-1/2 z-50 -translate-x-1/2 w-[min(92vw,420px)]">
-        <MobilePhotoUploader />
-      </div>
-    </LoginGate>
+    <AppShell>
+      <LoginGate>
+        <QrTargetIndexer />
+        <App />
+        <ScannerLauncher />
+        <QrPrintPanel />
+        <InstallPrompt />
+        <div className="fixed bottom-4 left-1/2 z-50 -translate-x-1/2 w-[min(92vw,420px)]">
+          <MobilePhotoUploader />
+        </div>
+      </LoginGate>
+    </AppShell>
   </React.StrictMode>
 );
