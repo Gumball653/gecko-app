@@ -13,6 +13,7 @@ import "./index.css";
 
 ReactDOM.createRoot(document.getElementById("root")).render(
   <React.StrictMode>
+    <EmergencyScanButton />
     <AppShell>
       <LoginGate>
         <ScanButtonBridge />
@@ -21,7 +22,6 @@ ReactDOM.createRoot(document.getElementById("root")).render(
         <ScannerLauncher />
         <QrPrintPanel />
         <InstallPrompt />
-        <EmergencyScanButton />
       </LoginGate>
     </AppShell>
   </React.StrictMode>
