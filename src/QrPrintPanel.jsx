@@ -2,18 +2,24 @@ import React, { useMemo, useState } from "react";
 import QRCode from "qrcode";
 
 const LABEL_SIZES = {
-  small: { name: "Small rack labels", cols: 4, width: "2.25in", height: "1.25in" },
-  medium: { name: "Medium enclosure labels", cols: 3, width: "2.75in", height: "1.75in" },
-  large: { name: "Large display labels", cols: 2, width: "3.5in", height: "2.5in" },
+  small: { name: "Small rack labels", cols: 3, width: "2.5in", height: "1.5in", qrClass: "h-28 w-28" },
+  medium: { name: "Medium enclosure labels", cols: 2, width: "3.25in", height: "2.0in", qrClass: "h-32 w-32" },
+  large: { name: "Large display labels", cols: 2, width: "3.75in", height: "2.5in", qrClass: "h-40 w-40" },
 };
 
 function pad(number) {
   return String(number).padStart(3, "0");
 }
 
+function normalizeCode(code) {
+  const clean = String(code || "").trim().toUpperCase();
+  if (!clean) return "";
+  return clean.startsWith("QR-") ? clean : `QR-${clean}`;
+}
+
 function buildRange(prefix, start, count) {
   return Array.from({ length: count }, (_, index) => ({
-    code: `${prefix}-${pad(start + index)}`,
+    code: normalizeCode(`${prefix}-${pad(start + index)}`),
     name: "",
     species: "",
     morph: "",
@@ -28,7 +34,7 @@ function parseBulkText(text) {
     .filter(Boolean)
     .map((line) => {
       const [code = "", name = "", species = "", morph = "", notes = ""] = line.split(",").map((part) => part.trim());
-      return { code, name, species, morph, notes };
+      return { code: normalizeCode(code), name, species, morph, notes };
     })
     .filter((item) => item.code);
 }
@@ -46,10 +52,19 @@ export default function QrPrintPanel() {
 
   async function makeLabels(items) {
     const withImages = await Promise.all(
-      items.map(async (item) => ({
-        ...item,
-        img: await QRCode.toDataURL(item.code, { margin: 1, width: 180 }),
-      }))
+      items.map(async (item) => {
+        const code = normalizeCode(item.code);
+        return {
+          ...item,
+          code,
+          img: await QRCode.toDataURL(code, {
+            errorCorrectionLevel: "H",
+            margin: 4,
+            width: 420,
+            color: { dark: "#000000", light: "#ffffff" },
+          }),
+        };
+      })
     );
     setLabels(withImages);
   }
@@ -63,7 +78,7 @@ export default function QrPrintPanel() {
   }
 
   function updateLabel(index, field, value) {
-    setLabels((current) => current.map((label, i) => (i === index ? { ...label, [field]: value } : label)));
+    setLabels((current) => current.map((label, i) => (i === index ? { ...label, [field]: field === "code" ? normalizeCode(value) : value } : label)));
   }
 
   const printStyle = useMemo(() => ({
@@ -85,6 +100,7 @@ export default function QrPrintPanel() {
               #qr-print-area { position: absolute; left: 0; top: 0; width: 100%; }
               .no-print { display: none !important; }
               .qr-label { break-inside: avoid; page-break-inside: avoid; }
+              img { image-rendering: pixelated; }
             }
           `}</style>
 
@@ -106,7 +122,7 @@ export default function QrPrintPanel() {
                   <input type="number" value={count} onChange={(e) => setCount(e.target.value)} className="rounded border p-2" placeholder="Count" />
                   <button onClick={generateRange} className="rounded bg-slate-950 p-2 font-bold text-white">Generate</button>
                 </div>
-                <p className="mt-2 text-sm text-slate-500">Examples: QR-A animals, QR-E eggs, QR-H housing.</p>
+                <p className="mt-2 text-sm text-slate-500">Examples: QR-A animals, QR-E eggs, QR-H housing. QR is now larger/high-contrast for reliable scanning.</p>
               </section>
 
               <section className="rounded-xl bg-white p-3 shadow-sm">
@@ -144,13 +160,13 @@ export default function QrPrintPanel() {
 
           <div id="qr-print-area" className="grid gap-3" style={printStyle}>
             {labels.map((label, index) => (
-              <div key={`${label.code}-${index}`} className="qr-label flex items-center gap-2 rounded border border-slate-300 p-2" style={{ width: size.width, height: size.height }}>
-                <img src={label.img} alt={label.code} className="h-20 w-20 shrink-0" />
+              <div key={`${label.code}-${index}`} className="qr-label flex items-center gap-3 rounded border-2 border-slate-950 bg-white p-2" style={{ width: size.width, height: size.height }}>
+                <img src={label.img} alt={label.code} className={`${size.qrClass} shrink-0 bg-white`} style={{ imageRendering: "pixelated" }} />
                 <div className="min-w-0 text-left leading-tight">
                   <p className="truncate text-sm font-black">{label.name || "Reptile Notes"}</p>
                   <p className="truncate text-xs font-semibold text-slate-700">{label.species}</p>
                   <p className="truncate text-xs text-slate-600">{label.morph}</p>
-                  <p className="mt-1 font-mono text-xs font-bold">{label.code}</p>
+                  <p className="mt-1 font-mono text-sm font-black text-black">{label.code}</p>
                   {label.notes && <p className="truncate text-[10px] text-slate-500">{label.notes}</p>}
                 </div>
               </div>
