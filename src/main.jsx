@@ -9,12 +9,14 @@ import MobilePhotoUploader from "./MobilePhotoUploader";
 import InstallPrompt from "./InstallPrompt";
 import AppShell from "./AppShell";
 import BottomNav from "./BottomNav";
+import ScanButtonBridge from "./ScanButtonBridge";
 import "./index.css";
 
 ReactDOM.createRoot(document.getElementById("root")).render(
   <React.StrictMode>
     <AppShell>
       <LoginGate>
+        <ScanButtonBridge />
         <QrTargetIndexer />
         <App />
         <ScannerLauncher />
