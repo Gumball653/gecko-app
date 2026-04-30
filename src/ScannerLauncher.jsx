@@ -70,6 +70,15 @@ export default function ScannerLauncher() {
   }
 
   useEffect(() => {
+    function openScanner() {
+      setOpen(true);
+    }
+
+    window.addEventListener("reptile-notes-open-scanner", openScanner);
+    return () => window.removeEventListener("reptile-notes-open-scanner", openScanner);
+  }, []);
+
+  useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const codeFromUrl = params.get("qr") || params.get("code");
     if (codeFromUrl) {
@@ -83,7 +92,11 @@ export default function ScannerLauncher() {
 
   return (
     <>
-      <button type="button" onClick={() => setOpen(true)} className="fixed bottom-4 right-4 z-50 rounded-full bg-slate-950 px-5 py-4 text-sm font-bold text-white shadow-xl hover:bg-slate-800">
+      <button
+        type="button"
+        onClick={() => setOpen(true)}
+        className="fixed bottom-4 right-4 z-50 rounded-full bg-slate-950 px-5 py-4 text-sm font-bold text-white shadow-xl hover:bg-slate-800"
+      >
         Scan QR
       </button>
 
@@ -99,10 +112,16 @@ export default function ScannerLauncher() {
           <div className="mx-auto max-w-md rounded-3xl bg-white p-4 shadow-2xl">
             <div className="mb-3 flex items-center justify-between gap-3">
               <div>
-                <h2 className="text-xl font-bold text-slate-950">Open QR Profile</h2>
-                <p className="text-sm text-slate-500">Use iPhone Camera to scan printed URL labels, or enter the QR code below.</p>
+                <h2 className="text-xl font-bold text-slate-950">Scan QR</h2>
+                <p className="text-sm text-slate-500">Use the in-app camera scanner below.</p>
               </div>
-              <button type="button" onClick={() => setOpen(false)} className="rounded-xl border border-slate-300 px-3 py-2 text-sm font-semibold">Close</button>
+              <button
+                type="button"
+                onClick={() => setOpen(false)}
+                className="rounded-xl border border-slate-300 px-3 py-2 text-sm font-semibold"
+              >
+                Close
+              </button>
             </div>
             <QrScanner onScan={handleScan} />
           </div>
