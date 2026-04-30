@@ -1,49 +1,38 @@
-import React from "react";
-import jsQR from "jsqr";
+import React, { useState } from "react";
 
 export default function QrScanner({ onScan }) {
+  const [manualCode, setManualCode] = useState("");
 
-  async function handleFile(event) {
-    const file = event.target.files?.[0];
-    if (!file) return;
-
-    const img = new Image();
-    const url = URL.createObjectURL(file);
-
-    img.onload = () => {
-      const canvas = document.createElement("canvas");
-      canvas.width = img.width;
-      canvas.height = img.height;
-      const ctx = canvas.getContext("2d");
-      ctx.drawImage(img, 0, 0);
-
-      const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-      const code = jsQR(imageData.data, canvas.width, canvas.height);
-
-      if (code) {
-        onScan(code.data);
-      } else {
-        alert("No QR code found. Try a clearer photo.");
-      }
-
-      URL.revokeObjectURL(url);
-    };
-
-    img.src = url;
+  function submitManual(event) {
+    event.preventDefault();
+    const code = manualCode.trim().toUpperCase();
+    if (!code) return;
+    onScan(code.startsWith("QR-") ? code : `QR-${code}`);
+    setManualCode("");
   }
 
   return (
-    <div className="space-y-3">
-      <label className="block rounded-2xl border border-dashed border-slate-300 p-6 text-center text-sm font-semibold text-slate-700">
-        📸 Tap to scan QR code
-        <input
-          type="file"
-          accept="image/*"
-          capture="environment"
-          onChange={handleFile}
-          className="mt-3 block w-full"
-        />
-      </label>
+    <div className="space-y-4">
+      <div className="rounded-2xl bg-amber-50 p-4 text-sm text-amber-900">
+        iPhone photo scanning has been disabled because loading full-resolution library photos can freeze Safari. Enter the printed QR code below instead.
+      </div>
+
+      <form onSubmit={submitManual} className="space-y-3">
+        <label className="block text-sm font-semibold text-slate-700">
+          QR code or ID
+          <input
+            value={manualCode}
+            onChange={(event) => setManualCode(event.target.value)}
+            placeholder="QR-A-001 or A-001"
+            className="mt-1 w-full rounded-xl border border-slate-300 px-3 py-3 text-base outline-none focus:border-slate-500"
+            autoCapitalize="characters"
+            inputMode="text"
+          />
+        </label>
+        <button type="submit" className="w-full rounded-xl bg-slate-950 px-4 py-3 text-base font-bold text-white">
+          Open Profile
+        </button>
+      </form>
     </div>
   );
 }
