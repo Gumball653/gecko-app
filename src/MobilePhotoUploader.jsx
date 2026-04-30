@@ -10,7 +10,7 @@ function makePhotoId() {
 export default function MobilePhotoUploader({ animalId = "unassigned", onUploaded }) {
   const inputRef = useRef(null);
   const [previewUrl, setPreviewUrl] = useState("");
-  const [status, setStatus] = useState("Ready");
+  const [status, setStatus] = useState("Camera only — ready");
   const [progress, setProgress] = useState(0);
   const [error, setError] = useState("");
 
@@ -23,10 +23,10 @@ export default function MobilePhotoUploader({ animalId = "unassigned", onUploade
 
     setError("");
     setProgress(0);
-    setStatus("Compressing photo...");
+    setStatus("Preparing camera photo...");
 
     try {
-      const compressed = await compressImage(originalFile, { maxWidth: 1000, quality: 0.68 });
+      const compressed = await compressImage(originalFile, { maxWidth: 900, quality: 0.65 });
       const localPreview = URL.createObjectURL(compressed);
       setPreviewUrl((oldUrl) => {
         if (oldUrl) URL.revokeObjectURL(oldUrl);
@@ -34,7 +34,7 @@ export default function MobilePhotoUploader({ animalId = "unassigned", onUploade
       });
 
       if (!canUpload) {
-        setStatus("Preview ready. Cloud upload is not configured or you are not logged in.");
+        setStatus("Preview ready. Log in and configure Firebase Storage to upload.");
         return;
       }
 
@@ -48,10 +48,7 @@ export default function MobilePhotoUploader({ animalId = "unassigned", onUploade
       await new Promise((resolve, reject) => {
         task.on(
           "state_changed",
-          (snapshot) => {
-            const pct = Math.round((snapshot.bytesTransferred / snapshot.totalBytes) * 100);
-            setProgress(pct);
-          },
+          (snapshot) => setProgress(Math.round((snapshot.bytesTransferred / snapshot.totalBytes) * 100)),
           reject,
           resolve
         );
@@ -70,17 +67,17 @@ export default function MobilePhotoUploader({ animalId = "unassigned", onUploade
     <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
       <div className="mb-3 flex items-center justify-between gap-3">
         <div>
-          <h3 className="font-bold text-slate-950">Mobile-safe photo upload</h3>
-          <p className="text-sm text-slate-500">Compresses first, previews safely, then uploads with progress.</p>
+          <h3 className="font-bold text-slate-950">Camera photo upload</h3>
+          <p className="text-sm text-slate-500">Uses camera capture only to avoid iPhone photo-library freezes.</p>
         </div>
         <button type="button" onClick={() => inputRef.current?.click()} className="rounded-xl bg-slate-950 px-4 py-2 text-sm font-bold text-white">
-          Add Photo
+          Open Camera
         </button>
       </div>
 
       <input ref={inputRef} type="file" accept="image/*" capture="environment" onChange={handlePick} className="hidden" />
 
-      {previewUrl && <img src={previewUrl} alt="Selected upload preview" className="mb-3 max-h-64 w-full rounded-xl object-contain bg-slate-100" />}
+      {previewUrl && <img src={previewUrl} alt="Camera upload preview" className="mb-3 max-h-64 w-full rounded-xl object-contain bg-slate-100" />}
 
       <p className="text-sm font-medium text-slate-700">{status}</p>
       {progress > 0 && progress < 100 && <div className="mt-2 h-3 overflow-hidden rounded-full bg-slate-100"><div className="h-full bg-emerald-600" style={{ width: `${progress}%` }} /></div>}
