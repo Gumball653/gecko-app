@@ -1,9 +1,53 @@
 import React, { useState } from "react";
 import QrScanner from "./QrScanner";
 
+function flashElement(element) {
+  if (!element) return;
+  element.scrollIntoView({ behavior: "smooth", block: "center" });
+  element.classList.add("ring-4", "ring-emerald-400", "ring-offset-2");
+  window.setTimeout(() => element.classList.remove("ring-4", "ring-emerald-400", "ring-offset-2"), 3000);
+}
+
+function findTextElement(code) {
+  const candidates = Array.from(document.querySelectorAll("button, [role='button'], a, div, article, section, li"));
+  return candidates.find((el) => el.textContent && el.textContent.includes(code));
+}
+
+function autoOpenScannedProfile(code) {
+  const escapedCode = CSS.escape(code);
+  const directMatch = document.querySelector(`[data-qr-code="${escapedCode}"], [data-animal-id="${escapedCode}"], [data-profile-id="${escapedCode}"]`);
+
+  if (directMatch) {
+    const clickable = directMatch.closest("button, [role='button'], a") || directMatch.querySelector("button, [role='button'], a") || directMatch;
+    clickable.click?.();
+    flashElement(directMatch);
+    return true;
+  }
+
+  const textMatch = findTextElement(code);
+  if (textMatch) {
+    const clickable = textMatch.closest("button, [role='button'], a") || textMatch;
+    clickable.click?.();
+    flashElement(textMatch);
+    return true;
+  }
+
+  const shortId = code.replace(/^QR-/, "");
+  const shortMatch = findTextElement(shortId);
+  if (shortMatch) {
+    const clickable = shortMatch.closest("button, [role='button'], a") || shortMatch;
+    clickable.click?.();
+    flashElement(shortMatch);
+    return true;
+  }
+
+  return false;
+}
+
 export default function ScannerLauncher() {
   const [open, setOpen] = useState(false);
   const [lastScan, setLastScan] = useState("");
+  const [scanMessage, setScanMessage] = useState("");
 
   function handleScan(result) {
     setLastScan(result);
@@ -15,12 +59,10 @@ export default function ScannerLauncher() {
       })
     );
 
-    const matchingElement = document.querySelector(`[data-qr-code="${CSS.escape(result)}"]`);
-    if (matchingElement) {
-      matchingElement.scrollIntoView({ behavior: "smooth", block: "center" });
-      matchingElement.classList.add("ring-4", "ring-emerald-400");
-      window.setTimeout(() => matchingElement.classList.remove("ring-4", "ring-emerald-400"), 2500);
-    }
+    window.setTimeout(() => {
+      const opened = autoOpenScannedProfile(result);
+      setScanMessage(opened ? `Opened ${result}` : `Scanned ${result}, but no matching profile was visible.`);
+    }, 150);
   }
 
   return (
@@ -33,9 +75,10 @@ export default function ScannerLauncher() {
         Scan QR
       </button>
 
-      {lastScan && (
+      {(lastScan || scanMessage) && (
         <div className="fixed bottom-20 right-4 z-40 max-w-xs rounded-2xl bg-white p-3 text-sm shadow-lg">
-          Last scan: <span className="font-mono font-semibold">{lastScan}</span>
+          {lastScan && <p>Last scan: <span className="font-mono font-semibold">{lastScan}</span></p>}
+          {scanMessage && <p className="mt-1 text-slate-600">{scanMessage}</p>}
         </div>
       )}
 
