@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useRef, useState } from "react";
 import { motion } from "framer-motion";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import ProfileQrModal from "./ProfileQrModal";
 
 const FOOD_OPTIONS = ["Rodent", "Insect", "Fish", "Greens", "Fruit", "Prepared diet", "Other"];
 const EMPTY_FOOD_VALUE = "";
@@ -1168,7 +1169,10 @@ export default function AnimalQrTrackingApp() {
       </div>
 
       {showQr && selected && (
-        <div className="fixed inset-0 z-50 flex items-end justify-center bg-slate-900/60 p-0 sm:items-center sm:p-4"><Card className="max-h-[92vh] w-full max-w-md overflow-auto rounded-t-3xl border-slate-200 shadow-2xl sm:rounded-3xl"><CardContent className="space-y-5 p-4 text-center sm:p-6"><div className="flex items-center justify-between gap-4 text-left"><div><h3 className="flex items-center gap-2 text-2xl font-bold"><Icon name="qr" className="h-6 w-6" /> Printable QR code</h3><p className="text-sm text-slate-500">{selected.name} - {selected.id}</p></div><Button variant="ghost" onClick={() => setShowQr(false)} className="rounded-xl"><Icon name="close" className="h-5 w-5" /></Button></div><div className="mx-auto w-fit rounded-3xl border border-slate-200 bg-white p-5 shadow-sm"><div className="grid grid-cols-[repeat(13,12px)] gap-0.5 rounded-xl bg-white p-3 ring-1 ring-slate-900">{buildQrCells(selected.qrCode).map((filled, index) => <span key={index} className={`h-3 w-3 ${filled ? "bg-slate-900" : "bg-white"}`} />)}</div><p className="mt-4 text-xl font-bold tracking-wide">{selected.qrCode}</p><p className="text-xs text-slate-500">Unique code for this profile</p></div><div className="flex justify-end gap-2"><Button variant="outline" onClick={() => setShowQr(false)} className="rounded-xl">Close</Button><Button onClick={printQrCode} className="rounded-xl"><Icon name="save" className="mr-2 h-4 w-4" /> Print QR code</Button></div></CardContent></Card></div>
+        <ProfileQrModal
+          selected={selected}
+          onClose={() => setShowQr(false)}
+        />
       )}
 
       {showLocationQr && selectedLocation && (
