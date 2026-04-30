@@ -86,21 +86,20 @@ export default function ScannerLauncher() {
       <button
         type="button"
         onClick={() => setOpen(true)}
-        style={{ position: "fixed", right: 16, top: "calc(16px + env(safe-area-inset-top))", zIndex: 2147483647 }}
-        className="rounded-full bg-slate-950 px-6 py-4 text-base font-bold text-white shadow-2xl"
+        className="fixed bottom-4 right-4 z-[9999] rounded-full bg-slate-950 px-5 py-4 text-sm font-bold text-white shadow-xl hover:bg-slate-800"
       >
         Scan QR
       </button>
 
       {(lastScan || scanMessage) && (
-        <div style={{ position: "fixed", right: 16, top: "calc(84px + env(safe-area-inset-top))", zIndex: 2147483646 }} className="max-w-xs rounded-2xl bg-white p-3 text-sm shadow-lg">
+        <div className="fixed bottom-20 right-4 z-[9998] max-w-xs rounded-2xl bg-white p-3 text-sm shadow-lg">
           {lastScan && <p>Last scan: <span className="font-mono font-semibold">{lastScan}</span></p>}
           {scanMessage && <p className="mt-1 text-slate-600">{scanMessage}</p>}
         </div>
       )}
 
       {open && (
-        <div className="fixed inset-0 z-[100] bg-black/70 p-4 backdrop-blur-sm">
+        <div className="fixed inset-0 z-[10000] bg-black/70 p-4 backdrop-blur-sm">
           <div className="mx-auto max-w-md rounded-3xl bg-white p-4 shadow-2xl">
             <div className="mb-3 flex items-center justify-between gap-3">
               <div>
