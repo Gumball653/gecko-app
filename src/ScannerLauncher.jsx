@@ -86,13 +86,14 @@ export default function ScannerLauncher() {
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className="mobile-floating-action-right rounded-full bg-slate-950 px-6 py-5 text-base font-bold text-white shadow-2xl"
+        style={{ position: "fixed", right: 16, top: "calc(16px + env(safe-area-inset-top))", zIndex: 2147483647 }}
+        className="rounded-full bg-slate-950 px-6 py-4 text-base font-bold text-white shadow-2xl"
       >
         Scan QR
       </button>
 
       {(lastScan || scanMessage) && (
-        <div className="mobile-floating-action-right mb-24 max-w-xs rounded-2xl bg-white p-3 text-sm shadow-lg">
+        <div style={{ position: "fixed", right: 16, top: "calc(84px + env(safe-area-inset-top))", zIndex: 2147483646 }} className="max-w-xs rounded-2xl bg-white p-3 text-sm shadow-lg">
           {lastScan && <p>Last scan: <span className="font-mono font-semibold">{lastScan}</span></p>}
           {scanMessage && <p className="mt-1 text-slate-600">{scanMessage}</p>}
         </div>
