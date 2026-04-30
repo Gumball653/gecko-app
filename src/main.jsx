@@ -8,6 +8,7 @@ import QrPrintPanel from "./QrPrintPanel";
 import InstallPrompt from "./InstallPrompt";
 import AppShell from "./AppShell";
 import ScanButtonBridge from "./ScanButtonBridge";
+import EmergencyScanButton from "./EmergencyScanButton";
 import "./index.css";
 
 ReactDOM.createRoot(document.getElementById("root")).render(
@@ -20,6 +21,7 @@ ReactDOM.createRoot(document.getElementById("root")).render(
         <ScannerLauncher />
         <QrPrintPanel />
         <InstallPrompt />
+        <EmergencyScanButton />
       </LoginGate>
     </AppShell>
   </React.StrictMode>
