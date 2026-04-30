@@ -1,5 +1,11 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import QrScanner from "./QrScanner";
+
+function normalizeQrCode(code) {
+  const trimmed = String(code || "").trim().toUpperCase();
+  if (!trimmed) return "";
+  return trimmed.startsWith("QR-") ? trimmed : `QR-${trimmed}`;
+}
 
 function flashElement(element) {
   if (!element) return;
@@ -13,7 +19,8 @@ function findTextElement(code) {
   return candidates.find((el) => el.textContent && el.textContent.includes(code));
 }
 
-function autoOpenScannedProfile(code) {
+function autoOpenScannedProfile(rawCode) {
+  const code = normalizeQrCode(rawCode);
   const escapedCode = CSS.escape(code);
   const directMatch = document.querySelector(`[data-qr-code="${escapedCode}"], [data-animal-id="${escapedCode}"], [data-profile-id="${escapedCode}"]`);
 
@@ -50,28 +57,33 @@ export default function ScannerLauncher() {
   const [scanMessage, setScanMessage] = useState("");
 
   function handleScan(result) {
-    setLastScan(result);
+    const code = normalizeQrCode(result);
+    setLastScan(code);
     setOpen(false);
 
-    window.dispatchEvent(
-      new CustomEvent("reptile-notes-qr-scan", {
-        detail: { code: result },
-      })
-    );
+    window.dispatchEvent(new CustomEvent("reptile-notes-qr-scan", { detail: { code } }));
 
     window.setTimeout(() => {
-      const opened = autoOpenScannedProfile(result);
-      setScanMessage(opened ? `Opened ${result}` : `Scanned ${result}, but no matching profile was visible.`);
-    }, 150);
+      const opened = autoOpenScannedProfile(code);
+      setScanMessage(opened ? `Opened ${code}` : `Scanned ${code}, but no matching profile was visible.`);
+    }, 300);
   }
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const codeFromUrl = params.get("qr") || params.get("code");
+    if (codeFromUrl) {
+      handleScan(codeFromUrl);
+      params.delete("qr");
+      params.delete("code");
+      const cleanUrl = `${window.location.pathname}${params.toString() ? `?${params.toString()}` : ""}${window.location.hash}`;
+      window.history.replaceState({}, "", cleanUrl);
+    }
+  }, []);
 
   return (
     <>
-      <button
-        type="button"
-        onClick={() => setOpen(true)}
-        className="fixed bottom-4 right-4 z-50 rounded-full bg-slate-950 px-5 py-4 text-sm font-bold text-white shadow-xl hover:bg-slate-800"
-      >
+      <button type="button" onClick={() => setOpen(true)} className="fixed bottom-4 right-4 z-50 rounded-full bg-slate-950 px-5 py-4 text-sm font-bold text-white shadow-xl hover:bg-slate-800">
         Scan QR
       </button>
 
@@ -87,16 +99,10 @@ export default function ScannerLauncher() {
           <div className="mx-auto max-w-md rounded-3xl bg-white p-4 shadow-2xl">
             <div className="mb-3 flex items-center justify-between gap-3">
               <div>
-                <h2 className="text-xl font-bold text-slate-950">Scan QR Code</h2>
-                <p className="text-sm text-slate-500">Point your camera at an animal, egg, or housing QR code.</p>
+                <h2 className="text-xl font-bold text-slate-950">Open QR Profile</h2>
+                <p className="text-sm text-slate-500">Use iPhone Camera to scan printed URL labels, or enter the QR code below.</p>
               </div>
-              <button
-                type="button"
-                onClick={() => setOpen(false)}
-                className="rounded-xl border border-slate-300 px-3 py-2 text-sm font-semibold"
-              >
-                Close
-              </button>
+              <button type="button" onClick={() => setOpen(false)} className="rounded-xl border border-slate-300 px-3 py-2 text-sm font-semibold">Close</button>
             </div>
             <QrScanner onScan={handleScan} />
           </div>
