@@ -70,15 +70,6 @@ export default function ScannerLauncher() {
   }
 
   useEffect(() => {
-    function openScanner() {
-      setOpen(true);
-    }
-
-    window.addEventListener("reptile-notes-open-scanner", openScanner);
-    return () => window.removeEventListener("reptile-notes-open-scanner", openScanner);
-  }, []);
-
-  useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const codeFromUrl = params.get("qr") || params.get("code");
     if (codeFromUrl) {
@@ -112,8 +103,8 @@ export default function ScannerLauncher() {
           <div className="mx-auto max-w-md rounded-3xl bg-white p-4 shadow-2xl">
             <div className="mb-3 flex items-center justify-between gap-3">
               <div>
-                <h2 className="text-xl font-bold text-slate-950">Scan QR</h2>
-                <p className="text-sm text-slate-500">Use the in-app camera scanner below.</p>
+                <h2 className="text-xl font-bold text-slate-950">Scan QR Code</h2>
+                <p className="text-sm text-slate-500">Point your camera at an animal, egg, or housing QR code.</p>
               </div>
               <button
                 type="button"
