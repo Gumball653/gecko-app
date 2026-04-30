@@ -8,6 +8,7 @@ import QrPrintPanel from "./QrPrintPanel";
 import MobilePhotoUploader from "./MobilePhotoUploader";
 import InstallPrompt from "./InstallPrompt";
 import AppShell from "./AppShell";
+import BottomNav from "./BottomNav";
 import "./index.css";
 
 ReactDOM.createRoot(document.getElementById("root")).render(
@@ -19,7 +20,8 @@ ReactDOM.createRoot(document.getElementById("root")).render(
         <ScannerLauncher />
         <QrPrintPanel />
         <InstallPrompt />
-        <div className="fixed bottom-4 left-1/2 z-50 -translate-x-1/2 w-[min(92vw,420px)]">
+        <BottomNav />
+        <div className="fixed bottom-16 left-1/2 z-50 -translate-x-1/2 w-[min(92vw,420px)]">
           <MobilePhotoUploader />
         </div>
       </LoginGate>
