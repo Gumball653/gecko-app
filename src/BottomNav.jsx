@@ -12,10 +12,10 @@ export default function BottomNav() {
 
   return (
     <div className="mobile-bottom-nav ios-blur border-t border-slate-200">
-      <div className="mx-auto flex max-w-md justify-around py-4 text-sm font-semibold text-slate-800">
+      <div className="mx-auto flex max-w-md justify-around py-6 text-base font-semibold text-slate-900">
         <button onClick={vibrate}>Home</button>
         <button onClick={vibrate}>Animals</button>
-        <button onClick={openScanner} className="text-base font-bold">Scan</button>
+        <button onClick={openScanner} className="text-lg font-bold">Scan</button>
         <button onClick={vibrate}>Logs</button>
         <button onClick={vibrate}>Settings</button>
       </div>
