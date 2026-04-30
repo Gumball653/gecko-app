@@ -1,38 +1,45 @@
-import React, { useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
+import { BrowserMultiFormatReader } from "@zxing/browser";
 
 export default function QrScanner({ onScan }) {
-  const [manualCode, setManualCode] = useState("");
+  const videoRef = useRef(null);
+  const readerRef = useRef(null);
+  const [error, setError] = useState("");
 
-  function submitManual(event) {
-    event.preventDefault();
-    const code = manualCode.trim().toUpperCase();
-    if (!code) return;
-    onScan(code.startsWith("QR-") ? code : `QR-${code}`);
-    setManualCode("");
-  }
+  useEffect(() => {
+    let active = true;
+
+    async function startScanner() {
+      try {
+        const reader = new BrowserMultiFormatReader();
+        readerRef.current = reader;
+
+        const devices = await BrowserMultiFormatReader.listVideoInputDevices();
+        const deviceId = devices?.[0]?.deviceId;
+
+        await reader.decodeFromVideoDevice(deviceId, videoRef.current, (result) => {
+          if (result && active) {
+            onScan(result.getText());
+            reader.reset();
+          }
+        });
+      } catch (err) {
+        setError("Camera scanning failed. Allow camera permission.");
+      }
+    }
+
+    startScanner();
+
+    return () => {
+      active = false;
+      readerRef.current?.reset();
+    };
+  }, [onScan]);
 
   return (
-    <div className="space-y-4">
-      <div className="rounded-2xl bg-amber-50 p-4 text-sm text-amber-900">
-        iPhone photo scanning has been disabled because loading full-resolution library photos can freeze Safari. Enter the printed QR code below instead.
-      </div>
-
-      <form onSubmit={submitManual} className="space-y-3">
-        <label className="block text-sm font-semibold text-slate-700">
-          QR code or ID
-          <input
-            value={manualCode}
-            onChange={(event) => setManualCode(event.target.value)}
-            placeholder="QR-A-001 or A-001"
-            className="mt-1 w-full rounded-xl border border-slate-300 px-3 py-3 text-base outline-none focus:border-slate-500"
-            autoCapitalize="characters"
-            inputMode="text"
-          />
-        </label>
-        <button type="submit" className="w-full rounded-xl bg-slate-950 px-4 py-3 text-base font-bold text-white">
-          Open Profile
-        </button>
-      </form>
+    <div className="space-y-3">
+      <video ref={videoRef} className="w-full rounded-2xl bg-black" autoPlay muted playsInline />
+      {error && <p className="text-sm text-red-600">{error}</p>}
     </div>
   );
 }
