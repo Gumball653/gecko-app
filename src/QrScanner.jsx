@@ -1,56 +1,70 @@
 import React, { useEffect, useRef, useState } from "react";
 import { Html5Qrcode } from "html5-qrcode";
 
-function isCameraSupported() {
-  return Boolean(
-    window.isSecureContext &&
-      navigator.mediaDevices &&
-      typeof navigator.mediaDevices.getUserMedia === "function"
-  );
-}
-
 export default function QrScanner({ onScan }) {
-  const scannerRef = useRef(null);
+  const videoRef = useRef(null);
+  const streamRef = useRef(null);
+  const rafRef = useRef(null);
   const fileScannerRef = useRef(null);
   const [error, setError] = useState("");
-  const [cameraSupported, setCameraSupported] = useState(true);
+  const [usingNative, setUsingNative] = useState(false);
 
   useEffect(() => {
-    let cancelled = false;
+    let stopped = false;
 
-    async function startScanner() {
-      if (!isCameraSupported()) {
-        setCameraSupported(false);
-        setError("Live camera scanning is not available in this browser. Use the image upload option below.");
+    async function startNativeScanner() {
+      if (!window.isSecureContext) {
+        setError("Camera requires HTTPS. Open the deployed Vercel site, not a preview inside another app.");
+        return;
+      }
+
+      if (!("BarcodeDetector" in window)) {
+        setError("Live scanning is not supported by this phone browser. Use the QR photo upload option below.");
         return;
       }
 
       try {
-        const scanner = new Html5Qrcode("qr-reader", { verbose: false });
-        scannerRef.current = scanner;
+        const detector = new window.BarcodeDetector({ formats: ["qr_code"] });
+        const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: "environment" } }, audio: false });
+        streamRef.current = stream;
+        setUsingNative(true);
 
-        await scanner.start(
-          { facingMode: { ideal: "environment" } },
-          { fps: 8, qrbox: { width: 240, height: 240 }, aspectRatio: 1 },
-          async (decodedText) => {
-            if (cancelled) return;
-            onScan(decodedText);
-            await scanner.stop().catch(() => {});
-          },
-          () => {}
-        );
+        const video = videoRef.current;
+        video.srcObject = stream;
+        video.setAttribute("playsinline", "true");
+        await video.play();
+
+        async function scanFrame() {
+          if (stopped || !video || video.readyState < 2) {
+            rafRef.current = requestAnimationFrame(scanFrame);
+            return;
+          }
+
+          try {
+            const codes = await detector.detect(video);
+            if (codes?.length) {
+              const value = codes[0].rawValue;
+              onScan(value);
+              stream.getTracks().forEach((track) => track.stop());
+              return;
+            }
+          } catch {}
+
+          rafRef.current = requestAnimationFrame(scanFrame);
+        }
+
+        scanFrame();
       } catch (err) {
-        setCameraSupported(false);
-        setError("Camera scanning could not start. Check camera permission, use HTTPS, or upload a QR image below.");
+        setError("Camera could not start. Allow camera permission or use the QR photo upload option below.");
       }
     }
 
-    startScanner();
+    startNativeScanner();
 
     return () => {
-      cancelled = true;
-      scannerRef.current?.stop?.().catch(() => {});
-      scannerRef.current?.clear?.().catch(() => {});
+      stopped = true;
+      if (rafRef.current) cancelAnimationFrame(rafRef.current);
+      streamRef.current?.getTracks?.().forEach((track) => track.stop());
     };
   }, [onScan]);
 
@@ -64,20 +78,22 @@ export default function QrScanner({ onScan }) {
       const result = await scanner.scanFile(file, true);
       onScan(result);
       setError("");
-    } catch (err) {
-      setError("Could not read a QR code from that image. Try a clearer photo.");
+    } catch {
+      setError("Could not read a QR code from that image. Try taking a closer, clearer photo of the label.");
+    } finally {
+      event.target.value = "";
     }
   }
 
   return (
     <div className="space-y-3">
-      {cameraSupported && <div id="qr-reader" className="overflow-hidden rounded-2xl" style={{ width: "100%" }} />}
+      <video ref={videoRef} className={`w-full rounded-2xl bg-black ${usingNative ? "block" : "hidden"}`} muted playsInline />
       <div id="qr-file-reader" className="hidden" />
 
       {error && <p className="rounded-xl bg-amber-50 p-3 text-sm font-medium text-amber-800">{error}</p>}
 
       <label className="block rounded-2xl border border-dashed border-slate-300 p-4 text-center text-sm font-semibold text-slate-700">
-        Upload QR image instead
+        Take/upload QR photo instead
         <input type="file" accept="image/*" capture="environment" onChange={handleFileScan} className="mt-3 block w-full text-sm" />
       </label>
     </div>
