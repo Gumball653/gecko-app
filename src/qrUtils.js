@@ -1,4 +1,4 @@
-import QRCode from "./ProfileQrModal";
+import QRCode from "qrcode";
 
 export function normalizeQrCode(code) {
   const clean = String(code || "").trim().toUpperCase();
