@@ -241,17 +241,9 @@ function deleteBreedingGroupById(groups, groupId) {
   return groups.filter((group) => group.id !== groupId);
 }
 
-function buildQrCells(value) {
-  const seed = String(value || "QR");
-  const size = 13;
-  return Array.from({ length: size * size }, (_, index) => {
-    const row = Math.floor(index / size);
-    const col = index % size;
-    const inFinder = (row < 4 && col < 4) || (row < 4 && col > size - 5) || (row > size - 5 && col < 4);
-    if (inFinder) return true;
-    const code = seed.charCodeAt(index % seed.length) || 0;
-    return (code + row * 7 + col * 11 + index) % 3 === 0;
-  });
+function buildQrCells() {
+  console.warn("Fake QR grid disabled. Use ProfileQrModal / makeQrDataUrl instead.");
+  return [];
 }
 
 function makePhoto(id, title, note = "", dataUrl = "") {
