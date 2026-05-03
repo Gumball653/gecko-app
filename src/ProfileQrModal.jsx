@@ -7,6 +7,7 @@ export default function ProfileQrModal({ selected, onClose }) {
 
   useEffect(() => {
     let active = true;
+    setQrUrl("");
 
     async function renderQr() {
       if (!code) return;
@@ -28,7 +29,7 @@ export default function ProfileQrModal({ selected, onClose }) {
   if (!selected) return null;
 
   return (
-    <div className="fixed inset-0 z-[300] flex items-center justify-center bg-black/60 p-4">
+    <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/70 p-4">
       <div className="w-full max-w-sm rounded-3xl bg-white p-5 text-center shadow-2xl">
         <style>{`
           @media print {
@@ -48,12 +49,13 @@ export default function ProfileQrModal({ selected, onClose }) {
         `}</style>
 
         <div id="single-profile-qr" className="rounded-2xl border-2 border-slate-950 bg-white p-4">
+          <p className="mb-2 rounded-full bg-emerald-100 px-3 py-1 text-xs font-black uppercase tracking-wide text-emerald-800">Real scannable QR</p>
           <h2 className="text-xl font-black text-slate-950">{selected.name || "Reptile Notes"}</h2>
           <p className="mb-3 text-sm font-semibold text-slate-600">{selected.species || selected.type || selected.stage || "Profile"}</p>
           {qrUrl ? (
             <img src={qrUrl} alt={code} className="mx-auto h-64 w-64 bg-white" style={{ imageRendering: "pixelated" }} />
           ) : (
-            <div className="mx-auto flex h-64 w-64 items-center justify-center rounded-xl bg-slate-100 text-sm font-semibold text-slate-500">Building QR...</div>
+            <div className="mx-auto flex h-64 w-64 items-center justify-center rounded-xl bg-slate-100 text-sm font-semibold text-slate-500">Building real QR...</div>
           )}
           <p className="mt-3 font-mono text-lg font-black text-black">{code}</p>
         </div>
