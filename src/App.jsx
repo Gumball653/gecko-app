@@ -15,6 +15,7 @@ const INACTIVE_REASON_OPTIONS = ["Sold", "Death", "Transferred", "Retired", "Hol
 const STORAGE_KEY = "reptile-notes-animal-tracker-v1";
 const APP_NAME = "Reptile Notes";
 const APP_VERSION = "1.0.0";
+const [realQrProfile, setRealQrProfile] = useState(null);
 
 function loadSavedAppState() {
   if (typeof window === "undefined") return null;
