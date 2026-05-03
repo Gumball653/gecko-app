@@ -1,8 +1,13 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
+import QRCode from "qrcode";
+import { initializeApp } from "firebase/app";
+import { getFirestore, collection, getDocs, setDoc, doc } from "firebase/firestore";
+import { getAuth, onAuthStateChanged, signInWithPopup, GoogleAuthProvider, signOut } from "firebase/auth";
+import { getStorage, ref, uploadBytes, getDownloadURL, deleteObject } from "firebase/storage";
 import { motion } from "framer-motion";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import ProfileQrModal from "./ProfileQrModal";
+import { renderToStaticMarkup } from "react-dom/server";
 
 const FOOD_OPTIONS = ["Rodent", "Insect", "Fish", "Greens", "Fruit", "Prepared diet", "Other"];
 const EMPTY_FOOD_VALUE = "";
@@ -15,12 +20,38 @@ const INACTIVE_REASON_OPTIONS = ["Sold", "Death", "Transferred", "Retired", "Hol
 const STORAGE_KEY = "reptile-notes-animal-tracker-v1";
 const APP_NAME = "Reptile Notes";
 const APP_VERSION = "1.0.0";
+const APP_BASE_URL = "https://reptilenotes.com";
+
+// 🔥 FIREBASE CONFIG (replace with your real values)
+const firebaseConfig = {
+  apiKey: "YOUR_KEY",
+  authDomain: "YOUR_DOMAIN",
+  projectId: "YOUR_PROJECT",
+  storageBucket: "YOUR_BUCKET",
+  appId: "YOUR_APP_ID"
+};
+
+const app = initializeApp(firebaseConfig);
+const db = getFirestore(app);
+const storage = getStorage(app);
+const auth = getAuth(app);
+const provider = new GoogleAuthProvider();
+
+const LABEL_TEMPLATES = {
+  "Avery 5160 (30 labels)": { cols: 3, size: 90 },
+  "Avery 5163 (10 labels)": { cols: 2, size: 140 },
+  "Avery 5161 (20 labels)": { cols: 2, size: 110 },
+  "Small stickers": { cols: 4, size: 70 },
+  "Large stickers": { cols: 2, size: 180 },
+};
 
 function loadSavedAppState() {
   if (typeof window === "undefined") return null;
   try {
-    const raw = window.localStorage.getItem(STORAGE_KEY);
-    return raw ? JSON.parse(raw) : null;
+    const raw = window.localStorage.getItem(STORAGE_KEY) || window.sessionStorage.getItem(STORAGE_KEY);
+    const parsed = raw ? JSON.parse(raw) : null;
+    if (!parsed || !Array.isArray(parsed.animals) || parsed.animals.length === 0) return null;
+    return parsed;
   } catch {
     return null;
   }
@@ -28,10 +59,15 @@ function loadSavedAppState() {
 
 function saveAppState(state) {
   if (typeof window === "undefined") return;
+  const payload = JSON.stringify({ ...state, version: APP_VERSION, savedAt: new Date().toISOString() });
   try {
-    window.localStorage.setItem(STORAGE_KEY, JSON.stringify({ ...state, version: APP_VERSION, savedAt: new Date().toISOString() }));
+    window.localStorage.setItem(STORAGE_KEY, payload);
   } catch {
-    window.sessionStorage.setItem(STORAGE_KEY, JSON.stringify({ ...state, version: APP_VERSION, savedAt: new Date().toISOString() }));
+    try {
+      window.sessionStorage.setItem(STORAGE_KEY, payload);
+    } catch {
+      undefined;
+    }
   }
 }
 
@@ -66,6 +102,72 @@ function makeEggId(nextId) {
 
 function makeQrCode(id) {
   return `QR-${id}`;
+}
+
+function getNextAnimalNumber(animals) {
+  return animals
+    .filter((animal) => /^A-\d+$/.test(animal.id))
+    .map((animal) => Number(animal.id.replace("A-", "")))
+    .reduce((max, number) => Math.max(max, number), 0) + 1;
+}
+
+function getAnimalProfileUrl(animal) {
+  return `${APP_BASE_URL}/animal/${encodeURIComponent(animal?.id || "")}`;
+}
+
+function getAnimalAppPath(animal) {
+  return `/animal/${encodeURIComponent(animal?.id || "")}`;
+}
+
+function getLocationProfileUrl(location) {
+  return `${APP_BASE_URL}/location/${encodeURIComponent(location?.id || "")}`;
+}
+
+function getLocationAppPath(location) {
+  return `/location/${encodeURIComponent(location?.id || "")}`;
+}
+
+function normalizeScannedValue(value) {
+  const raw = String(value || "").trim();
+  if (!raw) return "";
+  try {
+    const url = new URL(raw);
+    const parts = url.pathname.split("/").filter(Boolean);
+    if ((parts[0] === "animal" || parts[0] === "location") && parts[1]) return decodeURIComponent(parts[1]);
+    return raw;
+  } catch {
+    const parts = raw.split("/").filter(Boolean);
+    if ((parts[0] === "animal" || parts[0] === "location") && parts[1]) return decodeURIComponent(parts[1]);
+    return raw;
+  }
+}
+
+function getRouteTargetFromPath(pathname) {
+  const parts = String(pathname || "").split("/").filter(Boolean);
+  if ((parts[0] === "animal" || parts[0] === "location") && parts[1]) {
+    return { type: parts[0], id: decodeURIComponent(parts[1]) };
+  }
+  return null;
+}
+
+function getInitialRouteTarget() {
+  if (typeof window === "undefined") return null;
+  return getRouteTargetFromPath(window.location.pathname);
+}
+
+function safePushState(path) {
+  if (typeof window === "undefined" || !path) return;
+  window.history.pushState({}, "", path);
+}
+
+function findAnimalFromRouteTarget(target, animals) {
+  if (!target || target.type !== "animal") return null;
+  return animals.find((animal) => animal.id === target.id || animal.qrCode === target.id) || null;
+}
+
+function findLocationFromRouteTarget(target, locations) {
+  if (!target || target.type !== "location") return null;
+  return locations.find((location) => location.id === target.id || location.qrCode === target.id) || null;
 }
 
 function makeLocationId(nextId) {
@@ -198,8 +300,23 @@ function parentName(pedigree, role) {
   return normalizePedigree(pedigree)[role]?.name || "";
 }
 
+function handleLogin() {
+  signInWithPopup(auth, provider);
+}
+
+function handleLogout() {
+  signOut(auth);
+}
+
 function isActiveProfile(animal) {
   return (animal?.statusInfo?.status || "Active") === "Active";
+}
+
+function handleLogout() {
+  signOut(auth);
+}
+
+return (animal?.statusInfo?.status || "Active") === "Active";
 }
 
 function isFemale(animal) {
@@ -241,6 +358,34 @@ function deleteBreedingGroupById(groups, groupId) {
   return groups.filter((group) => group.id !== groupId);
 }
 
+function deleteAnimalById(animals, animalId) {
+  return animals.filter((animal) => animal.id !== animalId);
+}
+
+function removeAnimalFromBreedingGroups(groups, animalId) {
+  return groups
+    .map((group) => ({ ...group, animalIds: group.animalIds.filter((id) => id !== animalId) }))
+    .filter((group) => group.animalIds.length > 0);
+}
+
+function deleteHousingLocationById(locations, locationId) {
+  return locations.filter((location) => location.id !== locationId);
+}
+
+function clearHousingLocationFromAnimals(animals, locationId) {
+  return animals.map((animal) => {
+    if (animal.housing?.locationId !== locationId) return animal;
+    return {
+      ...animal,
+      housing: {
+        ...(animal.housing || {}),
+        locationId: "",
+        enclosure: "",
+      },
+    };
+  });
+}
+
 function buildQrCells(value) {
   const seed = String(value || "QR");
   const size = 13;
@@ -254,6 +399,31 @@ function buildQrCells(value) {
   });
 }
 
+function QrCodeGraphic({ value, size = 220 }) {
+  const [src, setSrc] = useState("");
+
+  useEffect(() => {
+    if (!value) return;
+    QRCode.toDataURL(value, { width: size }).then(setSrc);
+  }, [value, size]);
+
+  return src ? (
+    <img src={src} alt="QR Code" style={{ width: size }} />
+  ) : null;
+}
+        />
+      ))}
+    </div>
+  );
+}
+
+function renderQrMarkup(value, size = 220) {
+  const cells = buildQrCells(value);
+  const cellSize = Math.max(3, Math.floor(size / 13));
+  const squares = cells.map((filled) => `<span style="display:block;width:${cellSize}px;height:${cellSize}px;background:${filled ? "#111827" : "#ffffff"};"></span>`).join("");
+  return `<div style="display:grid;grid-template-columns:repeat(13,${cellSize}px);gap:2px;padding:12px;border:1px solid #111827;background:#ffffff;width:max-content;margin:0 auto;border-radius:12px;">${squares}</div>`;
+}
+
 function makePhoto(id, title, note = "", dataUrl = "") {
   return { id, title, note, dataUrl, dateAdded: formatDate(new Date()) };
 }
@@ -263,7 +433,12 @@ function getPhotoCount(animal) {
 }
 
 function getPhotoPreview(photo) {
-  return photo?.dataUrl || "";
+  return photo?.url || "";
+}
+
+function getPrimaryPhoto(animal) {
+  const photos = animal?.photos || [];
+  return photos.find((photo) => photo.id === animal?.primaryPhotoId) || photos[0] || null;
 }
 
 function functionSafeId(value) {
@@ -393,7 +568,7 @@ function createEggFromGroup(group, animals, animalMap, today = new Date()) {
     selectedParents: { sire: selectedSire, dam: selectedDam },
     pricing: createPricing("", "", ""),
     pedigree: buildPedigreeFromParents(animalMap[selectedSire], animalMap[selectedDam], `${group.name} Egg`, `Auto-populated up to 4 generations from ${group.name}`),
-    housing: { locationId: "", enclosure: "Incubator", temperature: "", humidity: "", lastCleaned: { date: formatDate(today), type: "Full clean", note: "Egg box prepared" }, bedding: "Other" },
+    housing: { locationId: "", enclosure: "Incubator", temperatureBasking: "", temperatureAmbient: "", humidity: "", lastCleaned: { date: formatDate(today), type: "Full clean", note: "Egg box prepared" }, bedding: "Other" },
     logs: [{ type: "egg", date: formatDate(today), summary: `Egg profile created from ${group.name}` }],
     photos: [],
   };
@@ -418,14 +593,26 @@ function runSelfTests() {
   console.assert(egg.selectedParents.sire === "A-002", "egg creation selects male sire");
   console.assert(!egg.possibleParents.sire.includes("A-004"), "inactive males are excluded from sires");
   console.assert(!canCreateEggFromGroup({ id: "B-002", name: "No Male", animalIds: ["A-001", "A-003", "A-004"] }, testMap), "egg creation blocks groups without active male");
+  console.assert(deleteAnimalById(testAnimals, "A-003").length === 3, "animals can be deleted by ID");
+  console.assert(removeAnimalFromBreedingGroups([group], "A-001")[0].animalIds.length === 3, "deleted animals are removed from breeding groups");
+  console.assert(deleteHousingLocationById([createHousingLocation("H-001", "One"), createHousingLocation("H-002", "Two")], "H-001").length === 1, "housing locations can be deleted by ID");
+  console.assert(clearHousingLocationFromAnimals([{ id: "A-010", housing: { locationId: "H-001", enclosure: "Rack" } }], "H-001")[0].housing.locationId === "", "deleted housing locations are cleared from assigned animals");
   const sanitized = sanitizeReproductiveFields({ sex: "Male", gravid: true, eggsLaid: "6" });
   console.assert(sanitized.gravid === false && sanitized.eggsLaid === "0", "non-female reproductive fields reset");
   const testLocation = createHousingLocation("H-010", "Rack 9 / Tub 1", "Tub", "Test location");
   console.assert(addLocationLogToList([testLocation], "H-010", { type: "scan", date: "2026-04-28", summary: "Scanned" })[0].logs.length === 1, "location logs add correctly");
-  console.assert(buildQrCells("QR-A-001").length === 169, "QR grid is 13x13");
+  console.assert(normalizeScannedValue("https://reptilenotes.com/animal/A-001") === "A-001", "animal URLs normalize to IDs");
+  console.assert(normalizeScannedValue("/location/H-003") === "H-003", "location paths normalize to IDs");
+  console.assert(getRouteTargetFromPath("/animal/A-002").id === "A-002", "animal route target parses correctly");
+  console.assert(findAnimalFromRouteTarget({ type: "animal", id: "A-001" }, testAnimals).name === "Dam", "deep link animal target finds matching profile");
+  console.assert(findLocationFromRouteTarget({ type: "location", id: "H-010" }, [testLocation]).name === "Rack 9 / Tub 1", "deep link location target finds matching housing location");
+  console.assert(getAnimalAppPath({ id: "A-001" }) === "/animal/A-001", "animal app path uses the animal object");
+  console.assert(getLocationAppPath({ id: "H-001" }) === "/location/H-001", "location app path uses the location object");
+  console.assert(buildQrCells("QR-A-001").length === 169, "legacy QR grid is 13x13");
   const photo = makePhoto("P-001", "Test Photo", "Testing photo", "data:image/png;base64,test");
   console.assert(getPhotoCount({ photos: [photo] }) === 1, "photo count works");
   console.assert(getPhotoPreview(photo).startsWith("data:image"), "photo preview works");
+  console.assert(getPrimaryPhoto({ photos: [photo], primaryPhotoId: "P-001" })?.id === "P-001", "primary photo selection works");
   console.assert(formatPrice("250") === "$250", "price formats numeric strings");
   console.assert(buildFoodSelectionLog("Rodent", "2026-04-28") === "Food selected: Rodent - feeding date auto-filled to 2026-04-28", "food selection text formats");
   console.assert(buildFeedingLog({ lastFeeding: { food: "", note: "Observed strike", date: "2026-04-28" } }, "2026-04-28").summary.includes("Observed strike"), "feeding note logs without food");
@@ -462,9 +649,9 @@ const initialAnimals = [
     eggsLaid: "0",
     pricing: createPricing("450", "900", "1200"),
     pedigree: { sire: "Orion", dam: "Nova", notes: "Pastel het pied line" },
-    housing: { locationId: "H-001", enclosure: "Rack 2 / Tub 7", temperature: "89F hot spot / 78F ambient", humidity: "62%", lastCleaned: { date: "2026-04-20", type: "Partial clean", note: "Spot cleaned water side" }, bedding: "Coconut fiber" },
+    housing: { locationId: "H-001", enclosure: "Rack 2 / Tub 7", temperatureBasking: "89°F", temperatureAmbient: "78°F", humidity: "62%", lastCleaned: { date: "2026-04-20", type: "Partial clean", note: "Spot cleaned water side" }, bedding: "Coconut fiber" },
     logs: [{ type: "cleaning", date: "2026-04-20", summary: "Partial clean - Spot cleaned water side" }],
-    photos: [makePhoto("P-A-001-1", "Profile reference", "Main reference photo placeholder")],
+    photos: [],
   },
   {
     id: "A-002",
@@ -486,7 +673,7 @@ const initialAnimals = [
     eggsLaid: "0",
     pricing: createPricing("300", "650", "850"),
     pedigree: { sire: "Titan", dam: "Echo", notes: "Clown line" },
-    housing: { locationId: "H-002", enclosure: "Rack 1 / Tub 3", temperature: "88F hot spot / 79F ambient", humidity: "58%", lastCleaned: { date: "2026-04-21", type: "Full clean", note: "Changed all bedding" }, bedding: "Aspen" },
+    housing: { locationId: "H-002", enclosure: "Rack 1 / Tub 3", temperatureBasking: "88°F", temperatureAmbient: "79°F", humidity: "58%", lastCleaned: { date: "2026-04-21", type: "Full clean", note: "Changed all bedding" }, bedding: "Aspen" },
     logs: [],
     photos: [],
   },
@@ -504,7 +691,7 @@ const initialAnimals = [
     selectedParents: { sire: "A-002", dam: "A-001" },
     pricing: createPricing("", "", ""),
     pedigree: { sire: "Atlas", dam: "Juno", notes: "Auto-populated from breeding group B-001" },
-    housing: { locationId: "H-003", enclosure: "Incubator / Box 4", temperature: "88.5F", humidity: "92%", lastCleaned: { date: "2026-04-24", type: "Full clean", note: "Fresh incubation media" }, bedding: "Other" },
+    housing: { locationId: "H-003", enclosure: "Incubator / Box 4", temperatureBasking: "88.5°F", temperatureAmbient: "88.5°F", humidity: "92%", lastCleaned: { date: "2026-04-24", type: "Full clean", note: "Fresh incubation media" }, bedding: "Other" },
     logs: [{ type: "egg", date: "2026-04-24", summary: "Egg laid and incubated" }],
     photos: [],
   },
@@ -542,7 +729,7 @@ function blankAnimal(nextId) {
     eggsLaid: "0",
     pricing: createPricing("", "", ""),
     pedigree: createPedigreeNode("New Animal"),
-    housing: { locationId: "", enclosure: "", temperature: "", humidity: "", lastCleaned: { date: "", type: "Partial clean", note: "" }, bedding: "Aspen" },
+    housing: { locationId: "", enclosure: "", temperatureBasking: "", temperatureAmbient: "", humidity: "", lastCleaned: { date: "", type: "Partial clean", note: "" }, bedding: "Aspen" },
     logs: [],
     photos: [],
   };
@@ -592,26 +779,64 @@ function MobileSectionTitle({ icon, title, subtitle }) {
   );
 }
 
-function PedigreeInput({ pedigree, path, label, onChange }) {
-  return <Field label={label}><Input value={getPedigreeNameAtPath(pedigree, path)} onChange={(event) => onChange(path, event.target.value)} /></Field>;
+function PedigreeInput({ pedigree, path, label, onChange, getLinkedAnimalForPath, onOpenAnimal }) {
+  const value = getPedigreeNameAtPath(pedigree, path);
+  const linkedAnimal = getLinkedAnimalForPath ? getLinkedAnimalForPath(path) : null;
+  return (
+    <Field label={label}>
+      <div className="flex gap-2">
+        <Input value={value} onChange={(event) => onChange(path, event.target.value)} />
+        <Button type="button" variant="outline" onClick={() => onOpenAnimal(linkedAnimal)} disabled={!linkedAnimal} className="rounded-xl whitespace-nowrap">
+          Open
+        </Button>
+      </div>
+    </Field>
+  );
 }
-
-
 
 export default function AnimalQrTrackingApp() {
   const savedState = loadSavedAppState();
-  const [animals, setAnimals] = useState(() => savedState?.animals || initialAnimals.map((animal) => ({ ...animal, _lastSaved: getProfileSnapshot(animal) })));
-  const [breedingGroups, setBreedingGroups] = useState(() => savedState?.breedingGroups || initialBreedingGroups);
-  const [housingLocations, setHousingLocations] = useState(() => savedState?.housingLocations || initialHousingLocations);
-  const [selectedId, setSelectedId] = useState("A-001");
+  const startingAnimals = savedState?.animals || initialAnimals.map((animal) => ({ ...animal, _lastSaved: getProfileSnapshot(animal) }));
+  const startingBreedingGroups = savedState?.breedingGroups || initialBreedingGroups;
+  const startingHousingLocations = savedState?.housingLocations || initialHousingLocations;
+  const startingRouteTarget = getInitialRouteTarget();
+  const startingAnimal = findAnimalFromRouteTarget(startingRouteTarget, startingAnimals);
+  const startingLocation = findLocationFromRouteTarget(startingRouteTarget, startingHousingLocations);
+  const [user, setUser] = useState(null);
+const [animals, setAnimals] = useState(() => startingAnimals);
+
+// 🔐 AUTH STATE
+useEffect(() => {
+  const unsub = onAuthStateChanged(auth, (u) => {
+    setUser(u);
+  });
+  return () => unsub();
+}, []);
+
+// 🔥 LOAD USER DATA FROM FIREBASE
+useEffect(() => {
+  if (!user) return;
+  async function load() {
+    const snap = await getDocs(collection(db, "users", user.uid, "animals"));
+    const data = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    if (data.length) setAnimals(data);
+  }
+  load();
+}, [user]);
+  const [breedingGroups, setBreedingGroups] = useState(() => startingBreedingGroups);
+  const [housingLocations, setHousingLocations] = useState(() => startingHousingLocations);
+  const [selectedId, setSelectedId] = useState(startingAnimal?.id || startingAnimals[0]?.id || "A-001");
   const [query, setQuery] = useState("");
-  const [activeTab, setActiveTab] = useState("profile");
+  const [activeTab, setActiveTab] = useState(startingLocation ? "locations" : startingAnimal?.stage === "egg" ? "egg" : "profile");
   const [showPedigree, setShowPedigree] = useState(false);
   const [showQr, setShowQr] = useState(false);
   const [showLocationQr, setShowLocationQr] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [showLocationDeleteConfirm, setShowLocationDeleteConfirm] = useState(false);
+  const [printPicker, setPrintPicker] = useState(null);
   const [scanValue, setScanValue] = useState("QR-A-001");
   const [scanMessage, setScanMessage] = useState("");
-  const [selectedLocationId, setSelectedLocationId] = useState("H-001");
+  const [selectedLocationId, setSelectedLocationId] = useState(startingLocation?.id || startingHousingLocations[0]?.id || "H-001");
   const [locationDraft, setLocationDraft] = useState({ name: "", type: "Enclosure", note: "" });
   const [locationLogDraft, setLocationLogDraft] = useState({ type: "scan", summary: "" });
   const [groupDraft, setGroupDraft] = useState({ name: "", animalIds: [], notes: "" });
@@ -619,10 +844,11 @@ export default function AnimalQrTrackingApp() {
   const [cameraMessage, setCameraMessage] = useState("");
   const [isScanning, setIsScanning] = useState(false);
   const [installPrompt, setInstallPrompt] = useState(null);
+  const [printTemplate, setPrintTemplate] = useState("Avery 5160 (30 labels)");
   const videoRef = useRef(null);
   const streamRef = useRef(null);
 
-  const selected = animals.find((animal) => animal.id === selectedId) || animals[0];
+  const selected = animals.find((animal) => animal.id === selectedId) || animals[0] || blankAnimal(1);
   const animalMap = useMemo(() => Object.fromEntries(animals.map((animal) => [animal.id, animal])), [animals]);
   const activeAnimals = animals.filter((animal) => animal.stage === "animal" && isActiveProfile(animal));
   const selectedLocation = housingLocations.find((location) => location.id === selectedLocationId) || housingLocations[0];
@@ -635,9 +861,67 @@ export default function AnimalQrTrackingApp() {
       .includes(query.toLowerCase())
   );
 
+  // 💾 Persist locally immediately
+useEffect(() => {
+  const state = { animals, breedingGroups, housingLocations };
+  saveAppState(state);
+}, [animals, breedingGroups, housingLocations]);
+
+// 🔥 OPTIMIZED FIREBASE SAVE (debounced + changed-only)
+const saveTimerRef = useRef(null);
+useEffect(() => {
+  if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
+  saveTimerRef.current = setTimeout(async () => {
+    try {
+      const changed = animals.filter((a) => {
+        const prev = a._lastSaved || {};
+        const curr = getProfileSnapshot(a);
+        return JSON.stringify(prev) !== JSON.stringify(curr);
+      });
+      if (changed.length === 0) return;
+
+      await Promise.all(
+        changed.map((a) => setDoc(doc(db, "users", user.uid, "animals", a.id), a))
+      );
+
+      // update _lastSaved markers after successful save
+      setAnimals((prev) =>
+        prev.map((a) => {
+          const curr = getProfileSnapshot(a);
+          const prevSnap = a._lastSaved || {};
+          if (JSON.stringify(prevSnap) !== JSON.stringify(curr)) {
+            return { ...a, _lastSaved: curr };
+          }
+          return a;
+        })
+      );
+    } catch (e) {
+      console.error("Firebase save failed", e);
+    }
+  }, 600);
+
+  return () => saveTimerRef.current && clearTimeout(saveTimerRef.current);
+}, [animals]);
+
   useEffect(() => {
-    saveAppState({ animals, breedingGroups, housingLocations });
-  }, [animals, breedingGroups, housingLocations]);
+    function applyRouteTarget() {
+      const target = getRouteTargetFromPath(window.location.pathname);
+      if (!target) return;
+      const animalMatch = findAnimalFromRouteTarget(target, animals);
+      if (animalMatch) {
+        setSelectedId(animalMatch.id);
+        setActiveTab(animalMatch.stage === "egg" ? "egg" : "profile");
+        return;
+      }
+      const locationMatch = findLocationFromRouteTarget(target, housingLocations);
+      if (locationMatch) {
+        setSelectedLocationId(locationMatch.id);
+        setActiveTab("locations");
+      }
+    }
+    window.addEventListener("popstate", applyRouteTarget);
+    return () => window.removeEventListener("popstate", applyRouteTarget);
+  }, [animals, housingLocations]);
 
   useEffect(() => {
     registerServiceWorker();
@@ -737,16 +1021,18 @@ export default function AnimalQrTrackingApp() {
   }
 
   function openScannedCode(value) {
-    const normalized = String(value || "").trim().toLowerCase();
-    const animalMatch = animals.find((animal) => animal.qrCode.toLowerCase() === normalized || animal.id.toLowerCase() === normalized);
+    const normalized = normalizeScannedValue(value).toLowerCase();
+    const animalMatch = animals.find((animal) => animal.qrCode.toLowerCase() === normalized || animal.id.toLowerCase() === normalized || getAnimalProfileUrl(animal).toLowerCase() === normalized);
     if (animalMatch) {
+      safePushState(getAnimalAppPath(animalMatch));
       setSelectedId(animalMatch.id);
       setActiveTab(animalMatch.stage === "egg" ? "egg" : "profile");
       setScanMessage(`Opened ${animalMatch.name}.`);
       return true;
     }
-    const locationMatch = housingLocations.find((location) => location.qrCode.toLowerCase() === normalized || location.id.toLowerCase() === normalized);
+    const locationMatch = housingLocations.find((location) => location.qrCode.toLowerCase() === normalized || location.id.toLowerCase() === normalized || getLocationProfileUrl(location).toLowerCase() === normalized);
     if (locationMatch) {
+      safePushState(getLocationAppPath(locationMatch));
       setSelectedLocationId(locationMatch.id);
       setActiveTab("locations");
       setScanMessage(`Opened housing location ${locationMatch.name}.`);
@@ -831,7 +1117,10 @@ export default function AnimalQrTrackingApp() {
     const today = formatDate(new Date());
     const relatedAnimals = animals.filter((animal) => animal.housing?.locationId === locationId);
     const firstAnimal = relatedAnimals[0];
-    const envDetails = firstAnimal?.housing?.temperature || firstAnimal?.housing?.humidity ? ` (Temp: ${firstAnimal?.housing?.temperature || "-"}, Humidity: ${firstAnimal?.housing?.humidity || "-"})` : "";
+    const basking = firstAnimal?.housing?.temperatureBasking || firstAnimal?.housing?.temperature || "-";
+    const ambient = firstAnimal?.housing?.temperatureAmbient || "-";
+    const humidity = firstAnimal?.housing?.humidity || "-";
+    const envDetails = firstAnimal ? ` (Basking: ${basking}, Ambient: ${ambient}, Humidity: ${humidity})` : "";
     const log = { type: type || "note", date: today, summary: `${summary || "Location checked"}${envDetails}` };
     setHousingLocations((prev) => addLocationLogToList(prev, locationId, log));
     setLocationLogDraft({ type: "scan", summary: "" });
@@ -844,12 +1133,83 @@ export default function AnimalQrTrackingApp() {
   }
 
   function addAnimal() {
-    const nextNumber = animals.filter((animal) => animal.id.startsWith("A-")).length + 1;
+    const nextNumber = getNextAnimalNumber(animals);
     const newAnimal = { ...blankAnimal(nextNumber) };
     newAnimal._lastSaved = getProfileSnapshot(newAnimal);
     setAnimals((prev) => [newAnimal, ...prev]);
     setSelectedId(newAnimal.id);
     setActiveTab("profile");
+    safePushState(getAnimalAppPath(newAnimal));
+  }
+
+  function requestDeleteSelectedAnimal() {
+    if (!selected || animals.length <= 1) return;
+    setShowDeleteConfirm(true);
+  }
+
+  async function deleteSelectedAnimal() {
+  if (!selected || animals.length <= 1) return;
+
+  if (!confirm(`Delete ${selected.name} and ALL its photos permanently?`)) return;
+
+  try {
+    const photos = selected.photos || [];
+    await Promise.all(
+      photos.map(async (photo) => {
+        if (photo.url) {
+          const fullRef = ref(storage, photo.url);
+          await deleteObject(fullRef).catch(() => {});
+        }
+        if (photo.thumbUrl) {
+          const thumbRef = ref(storage, photo.thumbUrl);
+          await deleteObject(thumbRef).catch(() => {});
+        }
+      })
+    );
+  } catch (e) {
+    console.error("Error deleting animal photos", e);
+  }
+
+  const remainingAnimals = deleteAnimalById(animals, selected.id);
+  const nextSelected = remainingAnimals[0];
+  setAnimals(remainingAnimals);
+  setBreedingGroups((prev) => removeAnimalFromBreedingGroups(prev, selected.id));
+  setSelectedId(nextSelected?.id || "");
+  setActiveTab(nextSelected?.stage === "egg" ? "egg" : "profile");
+  if (nextSelected) safePushState(getAnimalAppPath(nextSelected));
+  setShowDeleteConfirm(false);
+  setShowQr(false);
+  setShowPedigree(false);
+}
+    if (!selected || animals.length <= 1) return;
+    const remainingAnimals = deleteAnimalById(animals, selected.id);
+    const nextSelected = remainingAnimals[0];
+    setAnimals(remainingAnimals);
+    setBreedingGroups((prev) => removeAnimalFromBreedingGroups(prev, selected.id));
+    setSelectedId(nextSelected?.id || "");
+    setActiveTab(nextSelected?.stage === "egg" ? "egg" : "profile");
+    if (nextSelected) safePushState(getAnimalAppPath(nextSelected));
+    setShowDeleteConfirm(false);
+    setShowQr(false);
+    setShowPedigree(false);
+  }
+
+  function requestDeleteSelectedLocation() {
+    if (!selectedLocation || housingLocations.length <= 1) return;
+    setShowLocationDeleteConfirm(true);
+  }
+
+  function deleteSelectedLocation() {
+    if (!selectedLocation || housingLocations.length <= 1) return;
+    const locationId = selectedLocation.id;
+    const remainingLocations = deleteHousingLocationById(housingLocations, locationId);
+    const nextLocation = remainingLocations[0];
+    setHousingLocations(remainingLocations);
+    setAnimals((prev) => clearHousingLocationFromAnimals(prev, locationId));
+    setSelectedLocationId(nextLocation?.id || "");
+    if (nextLocation) safePushState(getLocationAppPath(nextLocation));
+    setShowLocationDeleteConfirm(false);
+    setShowLocationQr(false);
   }
 
   function toggleGroupAnimal(id) {
@@ -873,6 +1233,7 @@ export default function AnimalQrTrackingApp() {
     setAnimals((prev) => [{ ...egg, _lastSaved: getProfileSnapshot(egg) }, ...prev]);
     setSelectedId(egg.id);
     setActiveTab("egg");
+    safePushState(getAnimalAppPath(egg));
   }
 
   function deleteBreedingGroup(groupId) {
@@ -881,8 +1242,13 @@ export default function AnimalQrTrackingApp() {
 
   function hatchEgg() {
     const today = formatDate(new Date());
+    const newId = makeAnimalId(getNextAnimalNumber(animals));
+    const oldId = selected.id;
+    const oldQr = selected.qrCode;
     setAnimals((prev) => prev.map((animal) => animal.id === selected.id ? {
       ...animal,
+      id: newId,
+      qrCode: makeQrCode(newId),
       stage: "animal",
       statusInfo: createStatus("Active"),
       birthDate: today,
@@ -896,9 +1262,11 @@ export default function AnimalQrTrackingApp() {
       excrementObserved: "None observed",
       gravid: false,
       eggsLaid: "0",
-      logs: [{ type: "hatch", date: today, summary: `Egg hatched; converted to full animal profile. ${getParentMorphNotes(animal, animalMap)}` }, ...(animal.logs || [])],
+      logs: [{ type: "hatch", date: today, summary: `Egg ${oldId} (${oldQr}) hatched; converted to animal profile ${newId}. ${getParentMorphNotes(animal, animalMap)}` }, ...(animal.logs || [])],
     } : animal));
+    setSelectedId(newId);
     setActiveTab("profile");
+    safePushState(getAnimalAppPath({ id: newId }));
   }
 
   function updateEggParent(role, id) {
@@ -929,6 +1297,20 @@ export default function AnimalQrTrackingApp() {
     }));
   }
 
+  function findAnimalByPedigreePath(path) {
+    const name = getPedigreeNameAtPath(selected.pedigree, path).trim().toLowerCase();
+    if (!name) return null;
+    return animals.find((animal) => animal.name.trim().toLowerCase() === name || animal.id.trim().toLowerCase() === name) || null;
+  }
+
+  function openPedigreeAnimal(animal) {
+    if (!animal) return;
+    safePushState(getAnimalAppPath(animal));
+    setSelectedId(animal.id);
+    setActiveTab(animal.stage === "egg" ? "egg" : "profile");
+    setShowPedigree(false);
+  }
+
   function updatePedigreeName(path, value) {
     setAnimals((prev) => prev.map((animal) => animal.id === selected.id ? { ...animal, pedigree: setPedigreeNameAtPath(animal.pedigree, path, value) } : animal));
   }
@@ -942,55 +1324,221 @@ export default function AnimalQrTrackingApp() {
     }));
   }
 
-  function addPhotoFromFile(file) {
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = () => {
-      const photoId = `P-${functionSafeId(selected.id)}-${Date.now()}`;
-      const photo = makePhoto(photoId, photoDraft.title || file.name || "Animal photo", photoDraft.note, String(reader.result || ""));
-      setAnimals((prev) => prev.map((animal) => animal.id === selected.id ? { ...animal, photos: [photo, ...(animal.photos || [])] } : animal));
-      setPhotoDraft({ title: "", note: "" });
-      addLog("photo", `Added photo: ${photo.title}`);
-    };
-    reader.readAsDataURL(file);
+  const MAX_FILE_SIZE_MB = 5;
+
+async function addPhotoFromFile(file) {
+  if (!file || !user) return;
+
+  // 🚫 FILE SIZE LIMIT
+  if (file.size > MAX_FILE_SIZE_MB * 1024 * 1024) {
+    alert(`File too large. Max size is ${MAX_FILE_SIZE_MB}MB`);
+    return;
   }
+
+  try {
+    // 🧠 IMAGE PROCESSOR
+    const processImage = (file, maxWidth, quality) =>
+      new Promise((resolve) => {
+        const img = new Image();
+        const reader = new FileReader();
+
+        reader.onload = (e) => {
+          img.src = e.target.result;
+        };
+
+        img.onload = () => {
+          const canvas = document.createElement("canvas");
+          const ctx = canvas.getContext("2d");
+
+          const scale = Math.min(1, maxWidth / img.width);
+
+          canvas.width = img.width * scale;
+          canvas.height = img.height * scale;
+
+          ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+
+          canvas.toBlob(
+            (blob) => resolve(blob),
+            "image/jpeg",
+            quality
+          );
+        };
+
+        reader.readAsDataURL(file);
+      });
+
+    // 🔥 CREATE FULL IMAGE + THUMBNAIL
+    const fullImage = await processImage(file, 1200, 0.7);
+    const thumbnail = await processImage(file, 300, 0.6);
+
+    const photoId = `P-${functionSafeId(selected.id)}-${Date.now()}`;
+
+    const fullRef = ref(storage, `users/${user.uid}/animals/${selected.id}/${photoId}`);
+    const thumbRef = ref(storage, `users/${user.uid}/animals/${selected.id}/thumb_${photoId}`);
+
+    // 🚀 UPLOAD BOTH
+    await uploadBytes(fullRef, fullImage);
+    await uploadBytes(thumbRef, thumbnail);
+
+    const url = await getDownloadURL(fullRef);
+    const thumbUrl = await getDownloadURL(thumbRef);
+
+    const photo = {
+      id: photoId,
+      title: photoDraft.title || file.name || "Animal photo",
+      note: photoDraft.note,
+      url,
+      thumbUrl,
+      dateAdded: formatDate(new Date()),
+    };
+
+    setAnimals((prev) =>
+      prev.map((animal) =>
+        animal.id === selected.id
+          ? {
+              ...animal,
+              photos: [photo, ...(animal.photos || [])],
+              primaryPhotoId: animal.primaryPhotoId || photoId,
+            }
+          : animal
+      )
+    );
+
+    setPhotoDraft({ title: "", note: "" });
+    addLog("photo", `Added photo: ${photo.title}`);
+  } catch (e) {
+    console.error("Photo upload failed", e);
+  }
+}
 
   function updatePhoto(photoId, field, value) {
     setAnimals((prev) => prev.map((animal) => animal.id === selected.id ? { ...animal, photos: (animal.photos || []).map((photo) => photo.id === photoId ? { ...photo, [field]: value } : photo) } : animal));
   }
 
-  function removePhoto(photoId) {
-    setAnimals((prev) => prev.map((animal) => animal.id === selected.id ? { ...animal, photos: (animal.photos || []).filter((photo) => photo.id !== photoId) } : animal));
+  function setPrimaryPhoto(photoId) {
+    setAnimals((prev) => prev.map((animal) => animal.id === selected.id ? { ...animal, primaryPhotoId: photoId } : animal));
+  }
+
+  async function removePhoto(photoId) {
+  if (!confirm("Delete this photo permanently?")) return;
+  const photo = (selected.photos || []).find((p) => p.id === photoId);
+
+  try {
+    if (photo?.url) {
+      const fullRef = ref(storage, photo.url);
+      await deleteObject(fullRef).catch(() => {});
+    }
+    if (photo?.thumbUrl) {
+      const thumbRef = ref(storage, photo.thumbUrl);
+      await deleteObject(thumbRef).catch(() => {});
+    }
+  } catch (e) {
+    console.error("Failed deleting from storage", e);
+  }
+
+  setAnimals((prev) =>
+    prev.map((animal) => {
+      if (animal.id !== selected.id) return animal;
+      const photos = (animal.photos || []).filter((p) => p.id !== photoId);
+      return {
+        ...animal,
+        photos,
+        primaryPhotoId:
+          animal.primaryPhotoId === photoId ? photos[0]?.id || "" : animal.primaryPhotoId,
+      };
+    })
+  );
+
+  addLog("photo", `Deleted photo: ${photo?.title || photoId}`);
+}
+};
+    }));
+  }
+
+  function openPrintWindow(title, bodyHtml, extraCss = "") {
+    const printWindow = window.open("", "_blank", "width=900,height=700");
+    if (!printWindow) return;
+    printWindow.document.open();
+    printWindow.document.write(`<!doctype html><html><head><title>${title}</title><style>body{font-family:Arial,sans-serif;margin:24px;color:#111827}${extraCss}</style></head><body>${bodyHtml}</body></html>`);
+    printWindow.document.close();
+    printWindow.focus();
+    setTimeout(() => printWindow.print(), 400);
+  }
+
+  function singleQrHtml(title, subtitle, qrMarkup, code, url) {
+    return `<main style="min-height:90vh;display:flex;align-items:center;justify-content:center;"><section style="text-align:center;border:1px solid #e5e7eb;border-radius:24px;padding:32px;max-width:360px;"><h1 style="font-size:24px;margin:0 0 8px;">${title}</h1><p style="margin:0 0 16px;color:#475569;">${subtitle}</p>${qrMarkup}<p style="font-size:20px;font-weight:700;margin:16px 0 4px;">${code}</p><p style="font-size:12px;color:#64748b;margin:0;word-break:break-all;">${url}</p></section></main>`;
   }
 
   function printQrCode() {
-    const cells = buildQrCells(selected.qrCode);
-    const squares = cells.map((filled) => `<span style="display:block;width:12px;height:12px;background:${filled ? "#111827" : "#ffffff"}"></span>`).join("");
-    const printWindow = window.open("", "_blank", "width=420,height=560");
-    if (!printWindow) return;
-    printWindow.document.write(`<html><head><title>${selected.name} QR Code</title></head><body style="font-family:Arial,sans-serif;display:flex;min-height:100vh;align-items:center;justify-content:center;margin:0;"><main style="text-align:center;border:1px solid #e5e7eb;border-radius:24px;padding:32px;"><h1 style="font-size:24px;margin:0 0 8px;">${selected.name}</h1><p style="margin:0 0 16px;color:#475569;">${selected.id} - ${selected.species || "Species not set"}</p><div style="display:grid;grid-template-columns:repeat(13,12px);gap:2px;padding:16px;border:1px solid #111827;margin:auto;width:max-content;">${squares}</div><p style="font-size:20px;font-weight:700;margin:16px 0 4px;">${selected.qrCode}</p><p style="font-size:12px;color:#64748b;margin:0;">Scan or enter this code to open the animal profile.</p></main><script>window.print();</script></body></html>`);
-    printWindow.document.close();
+    const url = getAnimalProfileUrl(selected);
+    const qrMarkup = renderQrMarkup(url, 260);
+    openPrintWindow(`${selected.name} QR Code`, singleQrHtml(selected.name, `${selected.id} - ${selected.species || "Species not set"}`, qrMarkup, selected.qrCode, url));
   }
 
   function printLocationQrCode() {
     if (!selectedLocation) return;
-    const cells = buildQrCells(selectedLocation.qrCode);
-    const squares = cells.map((filled) => `<span style="display:block;width:12px;height:12px;background:${filled ? "#111827" : "#ffffff"}"></span>`).join("");
-    const printWindow = window.open("", "_blank", "width=420,height=560");
-    if (!printWindow) return;
-    printWindow.document.write(`<html><head><title>${selectedLocation.name} Housing QR Code</title></head><body style="font-family:Arial,sans-serif;display:flex;min-height:100vh;align-items:center;justify-content:center;margin:0;"><main style="text-align:center;border:1px solid #e5e7eb;border-radius:24px;padding:32px;"><h1 style="font-size:24px;margin:0 0 8px;">${selectedLocation.name}</h1><p style="margin:0 0 16px;color:#475569;">${selectedLocation.id} - ${selectedLocation.type || "Housing location"}</p><div style="display:grid;grid-template-columns:repeat(13,12px);gap:2px;padding:16px;border:1px solid #111827;margin:auto;width:max-content;">${squares}</div><p style="font-size:20px;font-weight:700;margin:16px 0 4px;">${selectedLocation.qrCode}</p><p style="font-size:12px;color:#64748b;margin:0;">Scan or enter this code to open and log this housing location.</p></main><script>window.print();</script></body></html>`);
-    printWindow.document.close();
+    const url = getLocationProfileUrl(selectedLocation);
+    const qrMarkup = renderQrMarkup(url, 260);
+    openPrintWindow(`${selectedLocation.name} Housing QR Code`, singleQrHtml(selectedLocation.name, `${selectedLocation.id} - ${selectedLocation.type || "Housing location"}`, qrMarkup, selectedLocation.qrCode, url));
+  }
+
+  function bulkQrCss(template) {
+    return `.grid{display:grid;grid-template-columns:repeat(${template.cols},1fr);gap:16px}.qr-card{break-inside:avoid;text-align:center;border:1px solid #e5e7eb;border-radius:18px;padding:16px}h1{margin:0 0 18px;font-size:24px}h2{font-size:16px;margin:0 0 4px}p{font-size:12px;margin:0 0 10px;color:#475569}strong{display:block;margin-top:8px;font-size:14px}small{display:block;margin-top:4px;font-size:9px;color:#64748b;word-break:break-all}@media print{body{margin:12px}.grid{grid-template-columns:repeat(${template.cols},1fr);gap:10px}.qr-card{page-break-inside:avoid}}`;
+  }
+
+  function printBulkAnimalQrCodes(templateName = printTemplate) {
+    const template = LABEL_TEMPLATES[templateName] || LABEL_TEMPLATES["Avery 5160 (30 labels)"];
+    const cards = animals.map((animal) => {
+      const url = getAnimalProfileUrl(animal);
+      const qrMarkup = renderQrMarkup(url, template.size);
+      return `<section class="qr-card"><h2>${animal.name}</h2><p>${animal.id} - ${animal.species || "Species not set"}</p>${qrMarkup}<strong>${animal.qrCode}</strong><small>${url}</small></section>`;
+    }).join("");
+    openPrintWindow("Bulk Animal QR Codes", `<h1>Animal and Egg QR Codes</h1><main class="grid">${cards}</main>`, bulkQrCss(template));
+  }
+
+  function printBulkLocationQrCodes(templateName = printTemplate) {
+    const template = LABEL_TEMPLATES[templateName] || LABEL_TEMPLATES["Avery 5160 (30 labels)"];
+    const cards = housingLocations.map((location) => {
+      const url = getLocationProfileUrl(location);
+      const qrMarkup = renderQrMarkup(url, template.size);
+      return `<section class="qr-card"><h2>${location.name}</h2><p>${location.id} - ${location.type || "Housing location"}</p>${qrMarkup}<strong>${location.qrCode}</strong><small>${url}</small></section>`;
+    }).join("");
+    openPrintWindow("Bulk Housing QR Codes", `<h1>Housing Location QR Codes</h1><main class="grid">${cards}</main>`, bulkQrCss(template));
+  }
+
+  function openPrintPicker(type) {
+    setPrintPicker(type);
+  }
+
+  function confirmBulkPrint(templateName) {
+    const type = printPicker;
+    setPrintTemplate(templateName);
+    setPrintPicker(null);
+    if (type === "animals") printBulkAnimalQrCodes(templateName);
+    if (type === "locations") printBulkLocationQrCodes(templateName);
   }
 
   return (
     <div className="min-h-screen bg-slate-50 p-3 pb-24 text-slate-900 sm:p-4 md:p-8">
       <div className="mx-auto max-w-7xl space-y-6">
-        <header className="flex flex-col gap-4 rounded-3xl bg-slate-900 p-4 text-white shadow-xl sm:p-6 md:flex-row md:items-center md:justify-between">
-          
+        <header className="flex flex-col gap-4
+">
+<div className="flex justify-end gap-2">
+  {user ? (
+    <>
+      <span className="text-sm text-white">{user.email}</span>
+      <Button onClick={handleLogout} className="rounded-xl">Logout</Button>
+    </>
+  ) : (
+    <Button onClick={handleLogin} className="rounded-xl">Login with Google</Button>
+  )}
+</div>
+<header className="flex flex-col gap-4 rounded-3xl bg-slate-900 p-4 text-white shadow-xl sm:p-6 md:flex-row md:items-center md:justify-between">
           <div>
             <p className="text-sm uppercase tracking-[0.3em] text-slate-300">{APP_NAME}</p>
             <h1 className="mt-2 text-2xl font-bold leading-tight sm:text-3xl md:text-5xl">Animal tracking, husbandry, breeding, and pedigree records</h1>
             <p className="mt-3 max-w-3xl text-sm text-slate-300 sm:text-base">Scan a QR code, open the exact animal or egg profile, and preserve every record even when an animal is sold, deceased, transferred, or retired.</p>
+            <p className="mt-3 w-fit rounded-full bg-white/10 px-3 py-1 text-xs text-slate-200">Local preview mode</p>
           </div>
           <div className="rounded-3xl bg-white/10 p-4 backdrop-blur"><Icon name="qr" className="h-16 w-16 text-5xl" /></div>
         </header>
@@ -1001,7 +1549,7 @@ export default function AnimalQrTrackingApp() {
               <CardContent className="space-y-3 p-3 sm:p-4">
                 <div className="flex items-center gap-2 font-semibold"><Icon name="qr" /> QR scan / lookup</div>
                 <div className="flex gap-2">
-                  <Input value={scanValue} onChange={(event) => setScanValue(event.target.value)} placeholder="Scan or type QR-A-001" />
+                  <Input value={scanValue} onChange={(event) => setScanValue(event.target.value)} placeholder="Scan, paste URL, or type QR-A-001" />
                   <Button onClick={scanQr} className="rounded-xl">Open</Button>
                 </div>
                 <div className="grid gap-2 sm:grid-cols-2">
@@ -1010,8 +1558,8 @@ export default function AnimalQrTrackingApp() {
                 </div>
                 {isScanning && <video ref={videoRef} autoPlay muted playsInline className="h-48 w-full rounded-2xl bg-slate-900 object-cover" />}
                 {cameraMessage && <p className="rounded-xl bg-slate-100 px-3 py-2 text-xs text-slate-700">{cameraMessage}</p>}
-                <p className="text-xs text-slate-500">Scanner accepts animal ID, location ID, QR value, or camera QR scan when supported.</p>
                 {scanMessage && <p className="rounded-xl bg-slate-100 px-3 py-2 text-xs text-slate-700">{scanMessage}</p>}
+                <p className="text-xs text-slate-500">Accepts animal IDs, housing IDs, QR values, and reptilenotes.com direct profile URLs.</p>
               </CardContent>
             </Card>
 
@@ -1019,12 +1567,15 @@ export default function AnimalQrTrackingApp() {
               <CardContent className="space-y-3 p-3 sm:p-4">
                 <div className="flex items-center justify-between gap-2">
                   <div className="flex items-center gap-2 font-semibold"><Icon name="search" /> Animals & eggs</div>
-                  <Button onClick={addAnimal} size="sm" className="rounded-xl"><Icon name="plus" className="mr-1 h-4 w-4" /> Add</Button>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <Button variant="outline" onClick={() => openPrintPicker("animals")} size="sm" className="rounded-xl"><Icon name="qr" className="mr-1 h-4 w-4" /> Print QRs</Button>
+                    <Button onClick={addAnimal} size="sm" className="rounded-xl"><Icon name="plus" className="mr-1 h-4 w-4" /> Add</Button>
+                  </div>
                 </div>
                 <Input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search name, ID, status..." />
                 <div className="max-h-[45vh] space-y-2 overflow-auto pr-1 lg:max-h-[560px]">
                   {filteredAnimals.map((animal) => (
-                    <button key={animal.id} onClick={() => { setSelectedId(animal.id); setActiveTab(animal.stage === "egg" ? "egg" : "profile"); }} className={`w-full rounded-2xl border p-3 text-left transition ${selectedId === animal.id ? "border-slate-900 bg-white shadow-sm" : "border-slate-200 bg-white/70 hover:bg-white"}`}>
+                    <button key={animal.id} onClick={() => { safePushState(getAnimalAppPath(animal)); setSelectedId(animal.id); setActiveTab(animal.stage === "egg" ? "egg" : "profile"); }} className={`w-full rounded-2xl border p-3 text-left transition ${selectedId === animal.id ? "border-slate-900 bg-white shadow-sm" : "border-slate-200 bg-white/70 hover:bg-white"}`}>
                       <div className="flex items-center justify-between gap-2">
                         <div className="font-semibold">{animal.name}</div>
                         <span className={`rounded-full px-2 py-1 text-xs ${!isActiveProfile(animal) ? "bg-slate-200 text-slate-700" : animal.stage === "egg" ? "bg-amber-100 text-amber-800" : "bg-emerald-100 text-emerald-800"}`}>{!isActiveProfile(animal) ? `inactive - ${animal.statusInfo?.reason || "archived"}` : animal.stage}</span>
@@ -1043,17 +1594,25 @@ export default function AnimalQrTrackingApp() {
                 <CardContent className="p-4 sm:p-5">
                   <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
                     <div className="flex items-center gap-3">
-                      <div className="rounded-2xl bg-slate-100 p-3"><Icon name={selected.stage === "egg" ? "egg" : "paw"} className="h-6 w-6" /></div>
+                      <div className="rounded-2xl bg-slate-100 p-2 overflow-hidden flex h-12 w-12 items-center justify-center">
+                        {getPhotoPreview(getPrimaryPhoto(selected)) ? (
+                          <img src={getPhotoPreview(getPrimaryPhoto(selected))} alt="profile" className="h-8 w-8 object-cover rounded-md" />
+                        ) : (
+                          <Icon name={selected.stage === "egg" ? "egg" : "paw"} className="h-5 w-5" />
+                        )}
+                      </div>
                       <div>
                         <h2 className="text-xl font-bold leading-tight sm:text-2xl">{selected.name}</h2>
                         <p className="text-sm text-slate-500">{selected.id} - {selected.qrCode} - {selected.species || "Species not set"}</p>
+                        <p className="mt-1 text-xs text-slate-400">QR opens: {getAnimalProfileUrl(selected)}</p>
                         {!isActiveProfile(selected) && <p className="mt-1 w-fit rounded-full bg-slate-200 px-3 py-1 text-xs font-semibold text-slate-700">Inactive: {selected.statusInfo?.reason || "Archived"} {selected.statusInfo?.date ? `on ${selected.statusInfo.date}` : ""}</p>}
                       </div>
                     </div>
                     <div className="flex gap-2 overflow-x-auto pb-1 md:flex-wrap md:overflow-visible">
                       {["profile", "housing", "locations", "photos", "breeding", "logs", selected.stage === "egg" ? "egg" : null].filter(Boolean).map((tab) => <Button key={tab} variant={activeTab === tab ? "default" : "outline"} onClick={() => setActiveTab(tab)} className="shrink-0 rounded-xl capitalize">{tab}</Button>)}
-                      <Button variant="outline" onClick={() => setShowQr(true)} className="rounded-xl"><Icon name="qr" className="mr-2 h-4 w-4" /> QR Code</Button>
+                      <Button variant="outline" onClick={() => setShowQr(true)} className="rounded-xl"><Icon name="qr" className="mr-2 h-4 w-4" /> View / print QR</Button>
                       <Button variant="outline" onClick={() => setShowPedigree(true)} className="rounded-xl"><Icon name="branch" className="mr-2 h-4 w-4" /> Pedigree</Button>
+                      <Button variant="outline" onClick={requestDeleteSelectedAnimal} className="rounded-xl" disabled={animals.length <= 1}><Icon name="close" className="mr-2 h-4 w-4" /> Delete</Button>
                     </div>
                   </div>
                 </CardContent>
@@ -1119,16 +1678,19 @@ export default function AnimalQrTrackingApp() {
                   <CardContent className="space-y-4 p-4 sm:p-5">
                     <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                       <MobileSectionTitle icon="home" title="Housing locations" subtitle="Each housing location has its own QR code and individual log history." />
-                      <Button onClick={() => setShowLocationQr(true)} className="rounded-xl" disabled={!selectedLocation}><Icon name="qr" className="mr-2 h-4 w-4" /> View QR</Button>
+                      <div className="flex flex-wrap items-center gap-2">
+                        <Button variant="outline" onClick={() => openPrintPicker("locations")} className="rounded-xl"><Icon name="qr" className="mr-2 h-4 w-4" /> Print all QRs</Button>
+                        <Button onClick={() => setShowLocationQr(true)} className="rounded-xl" disabled={!selectedLocation}><Icon name="qr" className="mr-2 h-4 w-4" /> View QR</Button>
+                      </div>
                     </div>
                     <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
                       {housingLocations.map((location) => {
                         const assignedAnimals = animals.filter((animal) => animal.housing?.locationId === location.id);
                         return (
-                          <button key={location.id} onClick={() => setSelectedLocationId(location.id)} className={`rounded-2xl border p-4 text-left transition ${selectedLocationId === location.id ? "border-slate-900 bg-white shadow-sm" : "border-slate-200 bg-white/70 hover:bg-white"}`}>
+                          <button key={location.id} onClick={() => { safePushState(getLocationAppPath(location)); setSelectedLocationId(location.id); }} className={`rounded-2xl border p-4 text-left transition ${selectedLocationId === location.id ? "border-slate-900 bg-white shadow-sm" : "border-slate-200 bg-white/70 hover:bg-white"}`}>
                             <div className="flex items-start justify-between gap-2">
                               <div><p className="font-bold">{location.name}</p><p className="text-xs text-slate-500">{location.id} - {location.qrCode} - {location.type}</p></div>
-                              <span className="rounded-full bg-slate-100 px-2 py-1 text-xs">{assignedAnimals.length} animal{assignedAnimals.length === 1 ? "" : "s"}</span>
+                              <span className="rounded-full bg-slate-100 px-2 py-1 text-xs">{assignedAnimals.length === 1 ? "1 animal" : `${assignedAnimals.length} animals`}</span>
                             </div>
                             <p className="mt-2 text-sm text-slate-600">{location.note || "No location note"}</p>
                           </button>
@@ -1139,18 +1701,18 @@ export default function AnimalQrTrackingApp() {
                 </Card>
                 <div className="space-y-4">
                   <Card className="rounded-3xl border-slate-200 shadow-sm"><CardContent className="space-y-4 p-4 sm:p-5"><MobileSectionTitle icon="plus" title="Add housing location" subtitle="Create printable QR codes for racks, tubs, cages, bins, shelves, or incubator boxes." /><Field label="Location name"><Input value={locationDraft.name} onChange={(event) => setLocationDraft({ ...locationDraft, name: event.target.value })} /></Field><Field label="Location type"><Input value={locationDraft.type} onChange={(event) => setLocationDraft({ ...locationDraft, type: event.target.value })} /></Field><Field label="Location note"><Textarea value={locationDraft.note} onChange={(event) => setLocationDraft({ ...locationDraft, note: event.target.value })} /></Field><Button onClick={addHousingLocation} className="w-full rounded-xl py-5 sm:py-2" disabled={!locationDraft.name.trim()}>Add location</Button></CardContent></Card>
-                  {selectedLocation && <Card className="rounded-3xl border-slate-200 shadow-sm"><CardContent className="space-y-4 p-4 sm:p-5"><MobileSectionTitle icon="qr" title={selectedLocation.name} subtitle={`${selectedLocation.id} - ${selectedLocation.qrCode}`} /><Field label="Location name"><Input value={selectedLocation.name} onChange={(event) => updateHousingLocation(selectedLocation.id, "name", event.target.value)} /></Field><Field label="Location type"><Input value={selectedLocation.type || ""} onChange={(event) => updateHousingLocation(selectedLocation.id, "type", event.target.value)} /></Field><Field label="Location note"><Textarea value={selectedLocation.note || ""} onChange={(event) => updateHousingLocation(selectedLocation.id, "note", event.target.value)} /></Field><div className="grid gap-2 sm:grid-cols-2"><Button variant="outline" onClick={() => setShowLocationQr(true)} className="rounded-xl"><Icon name="qr" className="mr-2 h-4 w-4" /> View / print QR</Button><Button onClick={() => addHousingLocationLog(selectedLocation.id)} className="rounded-xl"><Icon name="save" className="mr-2 h-4 w-4" /> Quick check log</Button></div></CardContent></Card>}
+                  {selectedLocation && <Card className="rounded-3xl border-slate-200 shadow-sm"><CardContent className="space-y-4 p-4 sm:p-5"><MobileSectionTitle icon="qr" title={selectedLocation.name} subtitle={`${selectedLocation.id} - ${selectedLocation.qrCode}`} /><Field label="Location name"><Input value={selectedLocation.name} onChange={(event) => updateHousingLocation(selectedLocation.id, "name", event.target.value)} /></Field><Field label="Location type"><Input value={selectedLocation.type || ""} onChange={(event) => updateHousingLocation(selectedLocation.id, "type", event.target.value)} /></Field><Field label="Location note"><Textarea value={selectedLocation.note || ""} onChange={(event) => updateHousingLocation(selectedLocation.id, "note", event.target.value)} /></Field><div className="grid gap-2 sm:grid-cols-2"><Button variant="outline" onClick={() => setShowLocationQr(true)} className="rounded-xl"><Icon name="qr" className="mr-2 h-4 w-4" /> View / print QR</Button><Button onClick={() => addHousingLocationLog(selectedLocation.id)} className="rounded-xl"><Icon name="save" className="mr-2 h-4 w-4" /> Quick check log</Button><Button variant="outline" onClick={requestDeleteSelectedLocation} className="rounded-xl sm:col-span-2" disabled={housingLocations.length <= 1}><Icon name="close" className="mr-2 h-4 w-4" /> Delete housing location</Button></div></CardContent></Card>}
                 </div>
                 {selectedLocation && <Card className="rounded-3xl border-slate-200 shadow-sm xl:col-span-2"><CardContent className="space-y-4 p-4 sm:p-5"><div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between"><MobileSectionTitle icon="clipboard" title="Location log" subtitle={`Individual log history for ${selectedLocation.name}.`} /><span className="rounded-full bg-slate-100 px-3 py-1 text-sm font-semibold text-slate-700">{(selectedLocation.logs || []).length} logs</span></div><div className="grid gap-4 md:grid-cols-3"><Field label="Log type"><Input value={locationLogDraft.type} onChange={(event) => setLocationLogDraft({ ...locationLogDraft, type: event.target.value })} /></Field><div className="md:col-span-2"><Field label="Log note"><Input value={locationLogDraft.summary} onChange={(event) => setLocationLogDraft({ ...locationLogDraft, summary: event.target.value })} /></Field></div></div><Button onClick={() => addHousingLocationLog(selectedLocation.id)} className="w-full rounded-xl py-5 sm:py-2"><Icon name="save" className="mr-2 h-4 w-4" /> Add location log</Button><div className="space-y-2">{(selectedLocation.logs || []).length === 0 && <p className="rounded-2xl bg-slate-50 p-4 text-sm text-slate-500">No logs for this housing location yet.</p>}{(selectedLocation.logs || []).map((log, index) => <div key={`${log.date}-${index}`} className="rounded-2xl border border-slate-200 bg-white p-4"><div className="flex items-center justify-between gap-3"><span className="font-semibold capitalize">{log.type}</span><span className="text-sm text-slate-500">{log.date}</span></div><p className="mt-2 text-sm text-slate-600">{log.summary}</p></div>)}</div></CardContent></Card>}
               </section>
             )}
 
             {activeTab === "photos" && (
-              <section className="space-y-4"><Card className="rounded-3xl border-slate-200 shadow-sm"><CardContent className="space-y-4 p-5"><div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between"><MobileSectionTitle icon="photo" title="Photos" subtitle={`Store profile and husbandry pictures for ${selected.name}.`} /><span className="rounded-full bg-slate-100 px-3 py-1 text-sm font-semibold text-slate-700">{getPhotoCount(selected)} stored</span></div><div className="rounded-3xl border border-dashed border-slate-300 bg-slate-50 p-4"><div className="grid gap-4 sm:grid-cols-2"><Field label="Photo title"><Input value={photoDraft.title} onChange={(event) => setPhotoDraft({ ...photoDraft, title: event.target.value })} /></Field><Field label="Choose image"><Input type="file" accept="image/*" onChange={(event) => addPhotoFromFile(event.target.files?.[0])} /></Field><div className="md:col-span-2"><Field label="Photo note"><Textarea value={photoDraft.note} onChange={(event) => setPhotoDraft({ ...photoDraft, note: event.target.value })} /></Field></div></div></div></CardContent></Card>{(selected.photos || []).length === 0 ? <Card className="rounded-3xl border-slate-200 shadow-sm"><CardContent className="p-8 text-center text-slate-500"><p className="font-semibold text-slate-700">No photos stored yet</p></CardContent></Card> : <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">{(selected.photos || []).map((photo) => <Card key={photo.id} className="overflow-hidden rounded-3xl border-slate-200 shadow-sm"><div className="flex aspect-video items-center justify-center bg-slate-100">{getPhotoPreview(photo) ? <img src={getPhotoPreview(photo)} alt={photo.title || "Animal photo"} className="h-full w-full object-cover" /> : <div className="text-center text-slate-500">Photo placeholder</div>}</div><CardContent className="space-y-3 p-3 sm:p-4"><Field label="Title"><Input value={photo.title || ""} onChange={(event) => updatePhoto(photo.id, "title", event.target.value)} /></Field><Field label="Note"><Textarea value={photo.note || ""} onChange={(event) => updatePhoto(photo.id, "note", event.target.value)} /></Field><div className="flex items-center justify-between gap-3 text-xs text-slate-500"><span>Added {photo.dateAdded || "-"}</span><Button variant="outline" onClick={() => removePhoto(photo.id)} className="rounded-xl"><Icon name="close" className="mr-2 h-4 w-4" /> Remove</Button></div></CardContent></Card>)}</div>}</section>
+              <section className="space-y-4"><Card className="rounded-3xl border-slate-200 shadow-sm"><CardContent className="space-y-4 p-5"><div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between"><MobileSectionTitle icon="photo" title="Photos" subtitle={`Store profile and husbandry pictures for ${selected.name}.`} /><span className="rounded-full bg-slate-100 px-3 py-1 text-sm font-semibold text-slate-700">{getPhotoCount(selected)} stored</span></div><div className="rounded-3xl border border-dashed border-slate-300 bg-slate-50 p-4"><div className="grid gap-4 sm:grid-cols-2"><Field label="Photo title"><Input value={photoDraft.title} onChange={(event) => setPhotoDraft({ ...photoDraft, title: event.target.value })} /></Field><Field label="Choose image"><Input type="file" accept="image/*" onChange={(event) => addPhotoFromFile(event.target.files?.[0])} /></Field><div className="md:col-span-2"><Field label="Photo note"><Textarea value={photoDraft.note} onChange={(event) => setPhotoDraft({ ...photoDraft, note: event.target.value })} /></Field></div></div></div></CardContent></Card>{(selected.photos || []).length === 0 ? <Card className="rounded-3xl border-slate-200 shadow-sm"><CardContent className="p-8 text-center text-slate-500"><p className="font-semibold text-slate-700">No photos stored yet</p></CardContent></Card> : <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">{(selected.photos || []).map((photo) => <Card key={photo.id} className="overflow-hidden rounded-3xl border-slate-200 shadow-sm"><div className="flex aspect-video items-center justify-center bg-slate-100">{getPhotoPreview(photo) ? <img src={getPhotoPreview(photo)} alt={photo.title || "Animal photo"} className="h-full w-full object-cover" /> : <div className="text-center text-slate-500">Photo placeholder</div>}</div><CardContent className="space-y-3 p-3 sm:p-4"><Field label="Title"><Input value={photo.title || ""} onChange={(event) => updatePhoto(photo.id, "title", event.target.value)} /></Field><Field label="Note"><Textarea value={photo.note || ""} onChange={(event) => updatePhoto(photo.id, "note", event.target.value)} /></Field><div className="flex flex-wrap items-center justify-between gap-3 text-xs text-slate-500"><span>{selected.primaryPhotoId === photo.id ? "Profile photo" : `Added ${photo.dateAdded || "-"}`}</span><div className="flex gap-2"><Button variant="outline" onClick={() => setPrimaryPhoto(photo.id)} className="rounded-xl" disabled={selected.primaryPhotoId === photo.id}>Set profile</Button><Button variant="outline" onClick={() => removePhoto(photo.id)} className="rounded-xl"><Icon name="close" className="mr-2 h-4 w-4" /> Remove</Button></div></div></CardContent></Card>)}</div>}</section>
             )}
 
             {activeTab === "housing" && (
-              <section className="space-y-4"><div className="grid gap-3 md:grid-cols-3"><StatCard icon="temp" label="Temperature" value={selected.housing?.temperature} /><StatCard icon="drop" label="Humidity" value={selected.housing?.humidity} /><StatCard icon="home" label="Last cleaned" value={`${selected.housing?.lastCleaned?.date || "-"} - ${selected.housing?.lastCleaned?.type || ""}`} /><StatCard icon="qr" label="Housing QR" value={selectedAnimalLocation?.qrCode || "No location"} /></div><Card className="rounded-3xl border-slate-200 shadow-sm"><CardContent className="grid gap-4 p-4 sm:p-5 md:grid-cols-2"><Field label="Assigned housing location"><Select value={selected.housing?.locationId || ""} onChange={(event) => assignSelectedAnimalToLocation(event.target.value)}><option value="">No linked location</option>{housingLocations.map((location) => <option key={location.id} value={location.id}>{location.name} - {location.qrCode}</option>)}</Select></Field><Field label="Enclosure / housing location"><Input value={selected.housing?.enclosure || ""} onChange={(event) => updateSelected("housing.enclosure", event.target.value)} /></Field><Field label="Bedding type"><Select value={selected.housing?.bedding || "Aspen"} onChange={(event) => updateSelected("housing.bedding", event.target.value)}>{BEDDING_OPTIONS.map((option) => <option key={option}>{option}</option>)}</Select></Field><Field label="Temperature"><Input value={selected.housing?.temperature || ""} onChange={(event) => updateSelected("housing.temperature", event.target.value)} /></Field><Field label="Humidity"><Input value={selected.housing?.humidity || ""} onChange={(event) => updateSelected("housing.humidity", event.target.value)} /></Field><Field label="Last cleaned"><Input type="date" value={selected.housing?.lastCleaned?.date || ""} onChange={(event) => updateSelected("housing.lastCleaned.date", event.target.value)} /></Field><Field label="Clean type"><Select value={selected.housing?.lastCleaned?.type || "Partial clean"} onChange={(event) => updateSelected("housing.lastCleaned.type", event.target.value)}>{CLEAN_OPTIONS.map((option) => <option key={option}>{option}</option>)}</Select></Field><Field label="Cleaning note"><Textarea value={selected.housing?.lastCleaned?.note || ""} onChange={(event) => updateSelected("housing.lastCleaned.note", event.target.value)} /></Field><div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-end"><Button variant="outline" onClick={() => { if (selected.housing?.locationId) { setSelectedLocationId(selected.housing.locationId); setShowLocationQr(true); } }} className="rounded-xl" disabled={!selected.housing?.locationId}><Icon name="qr" className="mr-2 h-4 w-4" /> View location QR</Button><Button onClick={() => { addLog("cleaning", `${selected.housing?.lastCleaned?.type || "Clean"} - ${selected.housing?.lastCleaned?.note || "housing cleaned"}`); if (selected.housing?.locationId) addHousingLocationLog(selected.housing.locationId, "cleaning", `${selected.housing?.lastCleaned?.type || "Clean"} - ${selected.housing?.lastCleaned?.note || "housing cleaned"}`); }} className="rounded-xl"><Icon name="save" className="mr-2 h-4 w-4" /> Save housing log</Button></div></CardContent></Card></section>
+              <section className="space-y-4"><div className="grid gap-3 md:grid-cols-3"><StatCard icon="temp" label="Temperature" value={`${selected.housing?.temperatureBasking || "-"} basking / ${selected.housing?.temperatureAmbient || "-"} ambient`} /><StatCard icon="drop" label="Humidity" value={selected.housing?.humidity} /><StatCard icon="home" label="Last cleaned" value={`${selected.housing?.lastCleaned?.date || "-"} - ${selected.housing?.lastCleaned?.type || ""}`} /><StatCard icon="qr" label="Housing QR" value={selectedAnimalLocation?.qrCode || "No location"} /></div><Card className="rounded-3xl border-slate-200 shadow-sm"><CardContent className="grid gap-4 p-4 sm:p-5 md:grid-cols-2"><Field label="Assigned housing location"><Select value={selected.housing?.locationId || ""} onChange={(event) => assignSelectedAnimalToLocation(event.target.value)}><option value="">No linked location</option>{housingLocations.map((location) => <option key={location.id} value={location.id}>{location.name} - {location.qrCode}</option>)}</Select></Field><Field label="Enclosure / housing location"><Input value={selected.housing?.enclosure || ""} onChange={(event) => updateSelected("housing.enclosure", event.target.value)} /></Field><Field label="Bedding type"><Select value={selected.housing?.bedding || "Aspen"} onChange={(event) => updateSelected("housing.bedding", event.target.value)}>{BEDDING_OPTIONS.map((option) => <option key={option}>{option}</option>)}</Select></Field><Field label="Basking temperature"><Input value={selected.housing?.temperatureBasking || ""} onChange={(event) => { const cleaned = String(event.target.value || "").replace(/[^0-9.]/g, ""); updateSelected("housing.temperatureBasking", cleaned ? `${cleaned.replace(/\.+/g, ".")}°F` : ""); }} placeholder="e.g. 90°F" /></Field><Field label="Ambient temperature"><Input value={selected.housing?.temperatureAmbient || ""} onChange={(event) => { const cleaned = String(event.target.value || "").replace(/[^0-9.]/g, ""); updateSelected("housing.temperatureAmbient", cleaned ? `${cleaned.replace(/\.+/g, ".")}°F` : ""); }} placeholder="e.g. 78°F" /></Field><Field label="Humidity"><Input value={selected.housing?.humidity || ""} onChange={(event) => { const cleaned = String(event.target.value || "").replace(/[^0-9.]/g, ""); updateSelected("housing.humidity", cleaned ? `${cleaned.replace(/\.+/g, ".")}%` : ""); }} placeholder="e.g. 60%" /></Field><Field label="Last cleaned"><Input type="date" value={selected.housing?.lastCleaned?.date || ""} onChange={(event) => updateSelected("housing.lastCleaned.date", event.target.value)} /></Field><Field label="Clean type"><Select value={selected.housing?.lastCleaned?.type || "Partial clean"} onChange={(event) => updateSelected("housing.lastCleaned.type", event.target.value)}>{CLEAN_OPTIONS.map((option) => <option key={option}>{option}</option>)}</Select></Field><Field label="Cleaning note"><Textarea value={selected.housing?.lastCleaned?.note || ""} onChange={(event) => updateSelected("housing.lastCleaned.note", event.target.value)} /></Field><div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-end"><Button variant="outline" onClick={() => { if (selected.housing?.locationId) { setSelectedLocationId(selected.housing.locationId); setShowLocationQr(true); } }} className="rounded-xl" disabled={!selected.housing?.locationId}><Icon name="qr" className="mr-2 h-4 w-4" /> View location QR</Button><Button onClick={() => { addLog("cleaning", `${selected.housing?.lastCleaned?.type || "Clean"} - ${selected.housing?.lastCleaned?.note || "housing cleaned"}`); if (selected.housing?.locationId) addHousingLocationLog(selected.housing.locationId, "cleaning", `${selected.housing?.lastCleaned?.type || "Clean"} - ${selected.housing?.lastCleaned?.note || "housing cleaned"}`); }} className="rounded-xl"><Icon name="save" className="mr-2 h-4 w-4" /> Save housing log</Button></div></CardContent></Card></section>
             )}
 
             {activeTab === "breeding" && (
@@ -1168,19 +1730,85 @@ export default function AnimalQrTrackingApp() {
         </section>
       </div>
 
+      {printPicker && (
+        <div className="fixed inset-0 z-50 flex items-end justify-center bg-slate-900/60 p-0 sm:items-center sm:p-4">
+          <Card className="w-full max-w-lg rounded-t-3xl border-slate-200 shadow-2xl sm:rounded-3xl">
+            <CardContent className="space-y-5 p-4 sm:p-6">
+              <div>
+                <h3 className="text-2xl font-bold text-slate-900">Choose label sheet</h3>
+                <p className="mt-2 text-sm text-slate-600">Select a sticker sheet size before printing {printPicker === "animals" ? "animal and egg" : "housing location"} QR codes.</p>
+              </div>
+              <div className="grid gap-2">
+                {Object.entries(LABEL_TEMPLATES).map(([name, template]) => (
+                  <button key={name} onClick={() => confirmBulkPrint(name)} className="flex items-center justify-between rounded-2xl border border-slate-200 bg-white p-4 text-left hover:border-slate-900">
+                    <div>
+                      <p className="font-semibold text-slate-900">{name}</p>
+                      <p className="text-sm text-slate-500">{template.cols} columns - QR size {template.size}px</p>
+                    </div>
+                    <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-600">Print</span>
+                  </button>
+                ))}
+              </div>
+              <div className="flex justify-end">
+                <Button variant="outline" onClick={() => setPrintPicker(null)} className="rounded-xl">Cancel</Button>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
+      {showLocationDeleteConfirm && selectedLocation && (
+        <div className="fixed inset-0 z-50 flex items-end justify-center bg-slate-900/60 p-0 sm:items-center sm:p-4">
+          <Card className="w-full max-w-md rounded-t-3xl border-slate-200 shadow-2xl sm:rounded-3xl">
+            <CardContent className="space-y-5 p-4 sm:p-6">
+              <div>
+                <h3 className="text-2xl font-bold text-slate-900">Delete this housing location?</h3>
+                <p className="mt-2 text-sm text-slate-600">This will permanently delete {selectedLocation.name} from this device and remove that housing assignment from any animals currently linked to it. This cannot be undone.</p>
+              </div>
+              <div className="rounded-2xl bg-slate-100 p-4 text-sm text-slate-700">
+                <p className="font-semibold">{selectedLocation.name}</p>
+                <p>{selectedLocation.id} - {selectedLocation.qrCode}</p>
+              </div>
+              <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+                <Button variant="outline" onClick={() => setShowLocationDeleteConfirm(false)} className="rounded-xl">Cancel</Button>
+                <Button onClick={deleteSelectedLocation} className="rounded-xl">Yes, delete location</Button>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
+      {showDeleteConfirm && selected && (
+        <div className="fixed inset-0 z-50 flex items-end justify-center bg-slate-900/60 p-0 sm:items-center sm:p-4">
+          <Card className="w-full max-w-md rounded-t-3xl border-slate-200 shadow-2xl sm:rounded-3xl">
+            <CardContent className="space-y-5 p-4 sm:p-6">
+              <div>
+                <h3 className="text-2xl font-bold text-slate-900">Delete this profile?</h3>
+                <p className="mt-2 text-sm text-slate-600">This will permanently delete {selected.name} from this device and remove it from any breeding groups. This cannot be undone.</p>
+              </div>
+              <div className="rounded-2xl bg-slate-100 p-4 text-sm text-slate-700">
+                <p className="font-semibold">{selected.name}</p>
+                <p>{selected.id} - {selected.qrCode}</p>
+              </div>
+              <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+                <Button variant="outline" onClick={() => setShowDeleteConfirm(false)} className="rounded-xl">Cancel</Button>
+                <Button onClick={deleteSelectedAnimal} className="rounded-xl">Yes, delete profile</Button>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
       {showQr && selected && (
-        <ProfileQrModal
-          selected={selected}
-          onClose={() => setShowQr(false)}
-        />
+        <div className="fixed inset-0 z-50 flex items-end justify-center bg-slate-900/60 p-0 sm:items-center sm:p-4"><Card className="max-h-[92vh] w-full max-w-md overflow-auto rounded-t-3xl border-slate-200 shadow-2xl sm:rounded-3xl"><CardContent className="space-y-5 p-4 text-center sm:p-6"><div className="flex items-center justify-between gap-4 text-left"><div><h3 className="flex items-center gap-2 text-2xl font-bold"><Icon name="qr" className="h-6 w-6" /> Printable QR code</h3><p className="text-sm text-slate-500">{selected.name} - {selected.id}</p></div><Button variant="ghost" onClick={() => setShowQr(false)} className="rounded-xl"><Icon name="close" className="h-5 w-5" /></Button></div><div className="mx-auto w-fit rounded-3xl border border-slate-200 bg-white p-5 shadow-sm"><QrCodeGraphic value={getAnimalProfileUrl(selected)} size={220} /><p className="mt-4 text-xl font-bold tracking-wide">{selected.qrCode}</p><p className="text-xs text-slate-500">{getAnimalProfileUrl(selected)}</p></div><div className="flex justify-end gap-2"><Button variant="outline" onClick={() => setShowQr(false)} className="rounded-xl">Close</Button><Button onClick={printQrCode} className="rounded-xl"><Icon name="save" className="mr-2 h-4 w-4" /> Print QR code</Button></div></CardContent></Card></div>
       )}
 
       {showLocationQr && selectedLocation && (
-        <div className="fixed inset-0 z-50 flex items-end justify-center bg-slate-900/60 p-0 sm:items-center sm:p-4"><Card className="max-h-[92vh] w-full max-w-md overflow-auto rounded-t-3xl border-slate-200 shadow-2xl sm:rounded-3xl"><CardContent className="space-y-5 p-4 text-center sm:p-6"><div className="flex items-center justify-between gap-4 text-left"><div><h3 className="flex items-center gap-2 text-2xl font-bold"><Icon name="qr" className="h-6 w-6" /> Housing QR code</h3><p className="text-sm text-slate-500">{selectedLocation.name} - {selectedLocation.id}</p></div><Button variant="ghost" onClick={() => setShowLocationQr(false)} className="rounded-xl"><Icon name="close" className="h-5 w-5" /></Button></div><div className="mx-auto w-fit rounded-3xl border border-slate-200 bg-white p-5 shadow-sm"><div className="grid grid-cols-[repeat(13,12px)] gap-0.5 rounded-xl bg-white p-3 ring-1 ring-slate-900">{buildQrCells(selectedLocation.qrCode).map((filled, index) => <span key={index} className={`h-3 w-3 ${filled ? "bg-slate-900" : "bg-white"}`} />)}</div><p className="mt-4 text-xl font-bold tracking-wide">{selectedLocation.qrCode}</p><p className="text-xs text-slate-500">Unique code for this housing location</p></div><div className="flex justify-end gap-2"><Button variant="outline" onClick={() => setShowLocationQr(false)} className="rounded-xl">Close</Button><Button onClick={printLocationQrCode} className="rounded-xl"><Icon name="save" className="mr-2 h-4 w-4" /> Print QR code</Button></div></CardContent></Card></div>
+        <div className="fixed inset-0 z-50 flex items-end justify-center bg-slate-900/60 p-0 sm:items-center sm:p-4"><Card className="max-h-[92vh] w-full max-w-md overflow-auto rounded-t-3xl border-slate-200 shadow-2xl sm:rounded-3xl"><CardContent className="space-y-5 p-4 text-center sm:p-6"><div className="flex items-center justify-between gap-4 text-left"><div><h3 className="flex items-center gap-2 text-2xl font-bold"><Icon name="qr" className="h-6 w-6" /> Housing QR code</h3><p className="text-sm text-slate-500">{selectedLocation.name} - {selectedLocation.id}</p></div><Button variant="ghost" onClick={() => setShowLocationQr(false)} className="rounded-xl"><Icon name="close" className="h-5 w-5" /></Button></div><div className="mx-auto w-fit rounded-3xl border border-slate-200 bg-white p-5 shadow-sm"><QrCodeGraphic value={getLocationProfileUrl(selectedLocation)} size={220} /><p className="mt-4 text-xl font-bold tracking-wide">{selectedLocation.qrCode}</p><p className="text-xs text-slate-500">{getLocationProfileUrl(selectedLocation)}</p></div><div className="flex justify-end gap-2"><Button variant="outline" onClick={() => setShowLocationQr(false)} className="rounded-xl">Close</Button><Button onClick={printLocationQrCode} className="rounded-xl"><Icon name="save" className="mr-2 h-4 w-4" /> Print QR code</Button></div></CardContent></Card></div>
       )}
 
       {showPedigree && selected && (
-        <div className="fixed inset-0 z-50 flex items-end justify-center bg-slate-900/60 p-0 sm:items-center sm:p-4"><Card className="max-h-[92vh] w-full max-w-6xl overflow-auto rounded-t-3xl border-slate-200 shadow-2xl sm:rounded-3xl"><CardContent className="space-y-5 p-4 sm:p-6"><div className="flex items-center justify-between gap-4"><div><h3 className="flex items-center gap-2 text-2xl font-bold"><Icon name="branch" className="h-6 w-6" /> Editable 4-generation pedigree</h3><p className="text-sm text-slate-500">Track parents, grandparents, great-grandparents, and great-great-grandparents for {selected.name}.</p></div><Button variant="ghost" onClick={() => setShowPedigree(false)} className="rounded-xl"><Icon name="close" className="h-5 w-5" /></Button></div><div className="grid gap-3 sm:grid-cols-3"><div className="rounded-2xl bg-slate-100 p-4 text-center"><p className="text-xs uppercase tracking-widest text-slate-500">Sire</p><p className="mt-2 text-lg font-bold">{parentName(selected.pedigree, "sire") || "Unknown"}</p></div><div className="rounded-2xl bg-white p-4 text-center ring-1 ring-slate-200"><p className="text-xs uppercase tracking-widest text-slate-500">Animal / Egg</p><p className="mt-2 text-lg font-bold">{selected.name}</p></div><div className="rounded-2xl bg-slate-100 p-4 text-center"><p className="text-xs uppercase tracking-widest text-slate-500">Dam</p><p className="mt-2 text-lg font-bold">{parentName(selected.pedigree, "dam") || "Unknown"}</p></div></div><div className="space-y-4"><div className="rounded-3xl border border-slate-200 bg-white p-4"><div className="mb-3 flex flex-col gap-2 md:flex-row md:items-center md:justify-between"><div><h4 className="font-bold">Link parents and auto-fill child pedigree</h4><p className="text-sm text-slate-500">Choose an existing active male sire and active female dam.</p></div><Button variant="outline" onClick={refillSelectedPedigreeFromParents} className="rounded-xl"><Icon name="branch" className="mr-2 h-4 w-4" /> Refill from linked parents</Button></div><div className="grid gap-4 sm:grid-cols-2"><Field label="Linked sire - active male only"><Select value={selected.selectedParents?.sire || getLinkedSireId(selected, animalMap)} onChange={(event) => linkParentAndAutofill("sire", event.target.value)}><option value="">Select sire</option>{activeAnimals.filter((animal) => animal.id !== selected.id && animal.sex === "Male").map((animal) => <option key={animal.id} value={animal.id}>{animal.name} - {animal.id}</option>)}</Select></Field><Field label="Linked dam - active female only"><Select value={selected.selectedParents?.dam || getLinkedDamId(selected, animalMap)} onChange={(event) => linkParentAndAutofill("dam", event.target.value)}><option value="">Select dam</option>{activeAnimals.filter((animal) => animal.id !== selected.id && animal.sex === "Female").map((animal) => <option key={animal.id} value={animal.id}>{animal.name} - {animal.id}</option>)}</Select></Field></div></div><div className="rounded-3xl border border-slate-200 bg-white p-4"><h4 className="mb-3 font-bold">Generation 1 - Parents</h4><div className="grid gap-4 sm:grid-cols-2"><PedigreeInput pedigree={selected.pedigree} path={["sire"]} label="Sire" onChange={updatePedigreeName} /><PedigreeInput pedigree={selected.pedigree} path={["dam"]} label="Dam" onChange={updatePedigreeName} /></div></div><div className="rounded-3xl border border-slate-200 bg-white p-4"><h4 className="mb-3 font-bold">Generation 2 - Grandparents</h4><div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4"><PedigreeInput pedigree={selected.pedigree} path={["sire", "sire"]} label="Sire's sire" onChange={updatePedigreeName} /><PedigreeInput pedigree={selected.pedigree} path={["sire", "dam"]} label="Sire's dam" onChange={updatePedigreeName} /><PedigreeInput pedigree={selected.pedigree} path={["dam", "sire"]} label="Dam's sire" onChange={updatePedigreeName} /><PedigreeInput pedigree={selected.pedigree} path={["dam", "dam"]} label="Dam's dam" onChange={updatePedigreeName} /></div></div><div className="rounded-3xl border border-slate-200 bg-white p-4"><h4 className="mb-3 font-bold">Generation 3 - Great-grandparents</h4><div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4"><PedigreeInput pedigree={selected.pedigree} path={["sire", "sire", "sire"]} label="Sire's sire's sire" onChange={updatePedigreeName} /><PedigreeInput pedigree={selected.pedigree} path={["sire", "sire", "dam"]} label="Sire's sire's dam" onChange={updatePedigreeName} /><PedigreeInput pedigree={selected.pedigree} path={["sire", "dam", "sire"]} label="Sire's dam's sire" onChange={updatePedigreeName} /><PedigreeInput pedigree={selected.pedigree} path={["sire", "dam", "dam"]} label="Sire's dam's dam" onChange={updatePedigreeName} /><PedigreeInput pedigree={selected.pedigree} path={["dam", "sire", "sire"]} label="Dam's sire's sire" onChange={updatePedigreeName} /><PedigreeInput pedigree={selected.pedigree} path={["dam", "sire", "dam"]} label="Dam's sire's dam" onChange={updatePedigreeName} /><PedigreeInput pedigree={selected.pedigree} path={["dam", "dam", "sire"]} label="Dam's dam's sire" onChange={updatePedigreeName} /><PedigreeInput pedigree={selected.pedigree} path={["dam", "dam", "dam"]} label="Dam's dam's dam" onChange={updatePedigreeName} /></div></div><div className="rounded-3xl border border-slate-200 bg-white p-4"><h4 className="mb-3 font-bold">Generation 4 - Great-great-grandparents</h4><div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">{[["sire","sire","sire","sire"],["sire","sire","sire","dam"],["sire","sire","dam","sire"],["sire","sire","dam","dam"],["sire","dam","sire","sire"],["sire","dam","sire","dam"],["sire","dam","dam","sire"],["sire","dam","dam","dam"],["dam","sire","sire","sire"],["dam","sire","sire","dam"],["dam","sire","dam","sire"],["dam","sire","dam","dam"],["dam","dam","sire","sire"],["dam","dam","sire","dam"],["dam","dam","dam","sire"],["dam","dam","dam","dam"]].map((path) => <PedigreeInput key={path.join("")} pedigree={selected.pedigree} path={path} label={path.map((part) => part === "sire" ? "S" : "D").join("")} onChange={updatePedigreeName} />)}</div></div><div className="rounded-3xl border border-slate-200 bg-white p-4"><Field label="Pedigree notes"><Textarea value={normalizePedigree(selected.pedigree).notes || ""} onChange={(event) => updatePedigreeNotes(event.target.value)} /></Field></div></div><div className="flex flex-col gap-2 md:flex-row md:justify-end"><Button variant="outline" onClick={refillSelectedPedigreeFromParents} className="rounded-xl"><Icon name="branch" className="mr-2 h-4 w-4" /> Auto-fill from selected parents</Button><Button onClick={() => setShowPedigree(false)} className="rounded-xl"><Icon name="save" className="mr-2 h-4 w-4" /> Save pedigree</Button></div></CardContent></Card></div>
+        <div className="fixed inset-0 z-50 flex items-end justify-center bg-slate-900/60 p-0 sm:items-center sm:p-4"><Card className="max-h-[92vh] w-full max-w-6xl overflow-auto rounded-t-3xl border-slate-200 shadow-2xl sm:rounded-3xl"><CardContent className="space-y-5 p-4 sm:p-6"><div className="flex items-center justify-between gap-4"><div><h3 className="flex items-center gap-2 text-2xl font-bold"><Icon name="branch" className="h-6 w-6" /> Editable 4-generation pedigree</h3><p className="text-sm text-slate-500">Track parents, grandparents, great-grandparents, and great-great-grandparents for {selected.name}.</p></div><Button variant="ghost" onClick={() => setShowPedigree(false)} className="rounded-xl"><Icon name="close" className="h-5 w-5" /></Button></div><div className="grid gap-3 sm:grid-cols-3"><div className="rounded-2xl bg-slate-100 p-4 text-center"><p className="text-xs uppercase tracking-widest text-slate-500">Sire</p><p className="mt-2 text-lg font-bold">{parentName(selected.pedigree, "sire") || "Unknown"}</p></div><div className="rounded-2xl bg-white p-4 text-center ring-1 ring-slate-200"><p className="text-xs uppercase tracking-widest text-slate-500">Animal / Egg</p><p className="mt-2 text-lg font-bold">{selected.name}</p></div><div className="rounded-2xl bg-slate-100 p-4 text-center"><p className="text-xs uppercase tracking-widest text-slate-500">Dam</p><p className="mt-2 text-lg font-bold">{parentName(selected.pedigree, "dam") || "Unknown"}</p></div></div><div className="space-y-4"><div className="rounded-3xl border border-slate-200 bg-white p-4"><div className="mb-3 flex flex-col gap-2 md:flex-row md:items-center md:justify-between"><div><h4 className="font-bold">Link parents and auto-fill child pedigree</h4><p className="text-sm text-slate-500">Choose an existing active male sire and active female dam.</p></div><Button variant="outline" onClick={refillSelectedPedigreeFromParents} className="rounded-xl"><Icon name="branch" className="mr-2 h-4 w-4" /> Refill from linked parents</Button></div><div className="grid gap-4 sm:grid-cols-2"><Field label="Linked sire - active male only"><Select value={selected.selectedParents?.sire || getLinkedSireId(selected, animalMap)} onChange={(event) => linkParentAndAutofill("sire", event.target.value)}><option value="">Select sire</option>{activeAnimals.filter((animal) => animal.id !== selected.id && animal.sex === "Male").map((animal) => <option key={animal.id} value={animal.id}>{animal.name} - {animal.id}</option>)}</Select></Field><Field label="Linked dam - active female only"><Select value={selected.selectedParents?.dam || getLinkedDamId(selected, animalMap)} onChange={(event) => linkParentAndAutofill("dam", event.target.value)}><option value="">Select dam</option>{activeAnimals.filter((animal) => animal.id !== selected.id && animal.sex === "Female").map((animal) => <option key={animal.id} value={animal.id}>{animal.name} - {animal.id}</option>)}</Select></Field></div></div><div className="rounded-3xl border border-slate-200 bg-white p-4"><h4 className="mb-3 font-bold">Generation 1 - Parents</h4><div className="grid gap-4 sm:grid-cols-2"><PedigreeInput pedigree={selected.pedigree} path={["sire"]} label="Sire" onChange={updatePedigreeName} getLinkedAnimalForPath={findAnimalByPedigreePath} onOpenAnimal={openPedigreeAnimal} /><PedigreeInput pedigree={selected.pedigree} path={["dam"]} label="Dam" onChange={updatePedigreeName} getLinkedAnimalForPath={findAnimalByPedigreePath} onOpenAnimal={openPedigreeAnimal} /></div></div><div className="rounded-3xl border border-slate-200 bg-white p-4"><h4 className="mb-3 font-bold">Generation 2 - Grandparents</h4><div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4"><PedigreeInput pedigree={selected.pedigree} path={["sire", "sire"]} label="Sire's sire" onChange={updatePedigreeName} getLinkedAnimalForPath={findAnimalByPedigreePath} onOpenAnimal={openPedigreeAnimal} /><PedigreeInput pedigree={selected.pedigree} path={["sire", "dam"]} label="Sire's dam" onChange={updatePedigreeName} getLinkedAnimalForPath={findAnimalByPedigreePath} onOpenAnimal={openPedigreeAnimal} /><PedigreeInput pedigree={selected.pedigree} path={["dam", "sire"]} label="Dam's sire" onChange={updatePedigreeName} getLinkedAnimalForPath={findAnimalByPedigreePath} onOpenAnimal={openPedigreeAnimal} /><PedigreeInput pedigree={selected.pedigree} path={["dam", "dam"]} label="Dam's dam" onChange={updatePedigreeName} getLinkedAnimalForPath={findAnimalByPedigreePath} onOpenAnimal={openPedigreeAnimal} /></div></div><div className="rounded-3xl border border-slate-200 bg-white p-4"><h4 className="mb-3 font-bold">Generation 3 - Great-grandparents</h4><div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4"><PedigreeInput pedigree={selected.pedigree} path={["sire", "sire", "sire"]} label="Sire's sire's sire" onChange={updatePedigreeName} getLinkedAnimalForPath={findAnimalByPedigreePath} onOpenAnimal={openPedigreeAnimal} /><PedigreeInput pedigree={selected.pedigree} path={["sire", "sire", "dam"]} label="Sire's sire's dam" onChange={updatePedigreeName} getLinkedAnimalForPath={findAnimalByPedigreePath} onOpenAnimal={openPedigreeAnimal} /><PedigreeInput pedigree={selected.pedigree} path={["sire", "dam", "sire"]} label="Sire's dam's sire" onChange={updatePedigreeName} getLinkedAnimalForPath={findAnimalByPedigreePath} onOpenAnimal={openPedigreeAnimal} /><PedigreeInput pedigree={selected.pedigree} path={["sire", "dam", "dam"]} label="Sire's dam's dam" onChange={updatePedigreeName} getLinkedAnimalForPath={findAnimalByPedigreePath} onOpenAnimal={openPedigreeAnimal} /><PedigreeInput pedigree={selected.pedigree} path={["dam", "sire", "sire"]} label="Dam's sire's sire" onChange={updatePedigreeName} getLinkedAnimalForPath={findAnimalByPedigreePath} onOpenAnimal={openPedigreeAnimal} /><PedigreeInput pedigree={selected.pedigree} path={["dam", "sire", "dam"]} label="Dam's sire's dam" onChange={updatePedigreeName} getLinkedAnimalForPath={findAnimalByPedigreePath} onOpenAnimal={openPedigreeAnimal} /><PedigreeInput pedigree={selected.pedigree} path={["dam", "dam", "sire"]} label="Dam's dam's sire" onChange={updatePedigreeName} getLinkedAnimalForPath={findAnimalByPedigreePath} onOpenAnimal={openPedigreeAnimal} /><PedigreeInput pedigree={selected.pedigree} path={["dam", "dam", "dam"]} label="Dam's dam's dam" onChange={updatePedigreeName} getLinkedAnimalForPath={findAnimalByPedigreePath} onOpenAnimal={openPedigreeAnimal} /></div></div><div className="rounded-3xl border border-slate-200 bg-white p-4"><h4 className="mb-3 font-bold">Generation 4 - Great-great-grandparents</h4><div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">{[["sire","sire","sire","sire"],["sire","sire","sire","dam"],["sire","sire","dam","sire"],["sire","sire","dam","dam"],["sire","dam","sire","sire"],["sire","dam","sire","dam"],["sire","dam","dam","sire"],["sire","dam","dam","dam"],["dam","sire","sire","sire"],["dam","sire","sire","dam"],["dam","sire","dam","sire"],["dam","sire","dam","dam"],["dam","dam","sire","sire"],["dam","dam","sire","dam"],["dam","dam","dam","sire"],["dam","dam","dam","dam"]].map((path) => <PedigreeInput key={path.join("")} pedigree={selected.pedigree} path={path} label={path.map((part) => part === "sire" ? "S" : "D").join("")} onChange={updatePedigreeName} getLinkedAnimalForPath={findAnimalByPedigreePath} onOpenAnimal={openPedigreeAnimal} />)}</div></div><div className="rounded-3xl border border-slate-200 bg-white p-4"><Field label="Pedigree notes"><Textarea value={normalizePedigree(selected.pedigree).notes || ""} onChange={(event) => updatePedigreeNotes(event.target.value)} /></Field></div></div><div className="flex flex-col gap-2 md:flex-row md:justify-end"><Button variant="outline" onClick={refillSelectedPedigreeFromParents} className="rounded-xl"><Icon name="branch" className="mr-2 h-4 w-4" /> Auto-fill from selected parents</Button><Button onClick={() => setShowPedigree(false)} className="rounded-xl"><Icon name="save" className="mr-2 h-4 w-4" /> Save pedigree</Button></div></CardContent></Card></div>
       )}
     </div>
   );
