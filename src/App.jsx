@@ -1157,11 +1157,11 @@ export default function AnimalQrTrackingApp() {
         </section>
       </div>
 
-      {showQr && selected && (
+     {showQr && selected && (
         <ProfileQrModal
         selected={selected}
-        onClose={() => setShowQr(false)}
-      />
+         onClose={() => setShowQr(false)}
+        />
     )}
 
       {showLocationQr && selectedLocation && (
