@@ -24,11 +24,13 @@ const APP_BASE_URL = "https://reptilenotes.com";
 
 // 🔥 FIREBASE CONFIG (replace with your real values)
 const firebaseConfig = {
-  apiKey: "YOUR_KEY",
-  authDomain: "YOUR_DOMAIN",
-  projectId: "YOUR_PROJECT",
-  storageBucket: "YOUR_BUCKET",
-  appId: "YOUR_APP_ID"
+  apiKey: "AIzaSyD4ct1D1m48Fuj-OUEiy9mWBaM8wlmw7cg",
+  authDomain: "test-app-e89f2.firebaseapp.com",
+  projectId: "test-app-e89f2",
+  storageBucket: "test-app-e89f2.firebasestorage.app",
+  messagingSenderId: "257405103432",
+  appId: "1:257405103432:web:8627699820fb052620177d",
+  measurementId: "G-D0S7B31260"
 };
 
 const app = initializeApp(firebaseConfig);
