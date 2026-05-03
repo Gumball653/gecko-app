@@ -1041,7 +1041,9 @@ export default function AnimalQrTrackingApp() {
                     </div>
                     <div className="flex gap-2 overflow-x-auto pb-1 md:flex-wrap md:overflow-visible">
                       {["profile", "housing", "locations", "photos", "breeding", "logs", selected.stage === "egg" ? "egg" : null].filter(Boolean).map((tab) => <Button key={tab} variant={activeTab === tab ? "default" : "outline"} onClick={() => setActiveTab(tab)} className="shrink-0 rounded-xl capitalize">{tab}</Button>)}
-                      <Button variant="outline" onClick={() => setShowQr(true)} className="rounded-xl"><Icon name="qr" className="mr-2 h-4 w-4" /> QR Code</Button>
+                     <Button variant="outline" onClick={() => setRealQrProfile(selected)} className="rounded-xl">
+  <Icon name="qr" className="mr-2 h-4 w-4" /> QR Code
+</Button>
                       <Button variant="outline" onClick={() => setShowPedigree(true)} className="rounded-xl"><Icon name="branch" className="mr-2 h-4 w-4" /> Pedigree</Button>
                     </div>
                   </div>
