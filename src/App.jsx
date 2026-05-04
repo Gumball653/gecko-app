@@ -3,6 +3,7 @@ import { motion } from "framer-motion";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import ProfileQrModal from "./ProfileQrModal";
+import { makeQrDataUrl } from "./qrUtils";
 
 const FOOD_OPTIONS = ["Rodent", "Insect", "Fish", "Greens", "Fruit", "Prepared diet", "Other"];
 const EMPTY_FOOD_VALUE = "";
