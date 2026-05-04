@@ -1203,6 +1203,9 @@ export default function AnimalQrTrackingApp() {
      {showQr && selected && (
         <ProfileQrModal
         selected={selected}
+          <Button variant="outline" onClick={() => setRealQrProfile(selected)} className="rounded-xl">
+  <Icon name="qr" className="mr-2 h-4 w-4" /> QR Code
+</Button>
          onClose={() => setShowQr(false)}
         />
     )}
