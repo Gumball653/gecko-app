@@ -983,15 +983,35 @@ export default function AnimalQrTrackingApp() {
   printWindow.document.close();
 }
 
-  function printLocationQrCode() {
-    if (!selectedLocation) return;
-    const cells = buildQrCells(selectedLocation.qrCode);
-    const squares = cells.map((filled) => `<span style="display:block;width:12px;height:12px;background:${filled ? "#111827" : "#ffffff"}"></span>`).join("");
-    const printWindow = window.open("", "_blank", "width=420,height=560");
-    if (!printWindow) return;
-    printWindow.document.write(`<html><head><title>${selectedLocation.name} Housing QR Code</title></head><body style="font-family:Arial,sans-serif;display:flex;min-height:100vh;align-items:center;justify-content:center;margin:0;"><main style="text-align:center;border:1px solid #e5e7eb;border-radius:24px;padding:32px;"><h1 style="font-size:24px;margin:0 0 8px;">${selectedLocation.name}</h1><p style="margin:0 0 16px;color:#475569;">${selectedLocation.id} - ${selectedLocation.type || "Housing location"}</p><div style="display:grid;grid-template-columns:repeat(13,12px);gap:2px;padding:16px;border:1px solid #111827;margin:auto;width:max-content;">${squares}</div><p style="font-size:20px;font-weight:700;margin:16px 0 4px;">${selectedLocation.qrCode}</p><p style="font-size:12px;color:#64748b;margin:0;">Scan or enter this code to open and log this housing location.</p></main><script>window.print();</script></body></html>`);
-    printWindow.document.close();
-  }
+  async function printLocationQrCode() {
+  if (!selectedLocation) return;
+
+  const qrUrl = await makeQrDataUrl(selectedLocation.qrCode);
+  const printWindow = window.open("", "_blank", "width=420,height=560");
+  if (!printWindow) return;
+
+  printWindow.document.write(`
+    <html>
+      <head>
+        <title>${selectedLocation.name} Housing QR Code</title>
+      </head>
+      <body style="font-family:Arial,sans-serif;display:flex;min-height:100vh;align-items:center;justify-content:center;margin:0;">
+        <main style="text-align:center;border:1px solid #e5e7eb;border-radius:24px;padding:32px;">
+          <h1 style="font-size:24px;margin:0 0 8px;">${selectedLocation.name}</h1>
+          <p style="margin:0 0 16px;color:#475569;">${selectedLocation.id} - ${selectedLocation.type || "Housing location"}</p>
+          <img src="${qrUrl}" alt="${selectedLocation.qrCode}" style="width:260px;height:260px;image-rendering:pixelated;background:white;" />
+          <p style="font-size:20px;font-weight:700;margin:16px 0 4px;">${selectedLocation.qrCode}</p>
+          <p style="font-size:12px;color:#64748b;margin:0;">Scan or enter this code to open and log this housing location.</p>
+        </main>
+        <script>
+          window.onload = () => window.print();
+        </script>
+      </body>
+    </html>
+  `);
+
+  printWindow.document.close();
+}
 
   return (
     <div className="min-h-screen bg-slate-50 p-3 pb-24 text-slate-900 sm:p-4 md:p-8">
