@@ -242,11 +242,6 @@ function deleteBreedingGroupById(groups, groupId) {
   return groups.filter((group) => group.id !== groupId);
 }
 
-function buildQrCells() {
-  console.warn("Fake QR grid disabled. Use ProfileQrModal / makeQrDataUrl instead.");
-  return [];
-}
-
 function makePhoto(id, title, note = "", dataUrl = "") {
   return { id, title, note, dataUrl, dateAdded: formatDate(new Date()) };
 }
