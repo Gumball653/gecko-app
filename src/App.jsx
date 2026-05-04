@@ -1015,6 +1015,12 @@ export default function AnimalQrTrackingApp() {
             <p className="text-sm uppercase tracking-[0.3em] text-slate-300">{APP_NAME}</p>
             <h1 className="mt-2 text-2xl font-bold leading-tight sm:text-3xl md:text-5xl">Animal tracking, husbandry, breeding, and pedigree records</h1>
             <p className="mt-3 max-w-3xl text-sm text-slate-300 sm:text-base">Scan a QR code, open the exact animal or egg profile, and preserve every record even when an animal is sold, deceased, transferred, or retired.</p>
+          {realQrProfile && (
+  <ProfileQrModal
+    selected={realQrProfile}
+    onClose={() => setRealQrProfile(null)}
+  />
+)}
           </div>
           <div className="rounded-3xl bg-white/10 p-4 backdrop-blur"><Icon name="qr" className="h-16 w-16 text-5xl" /></div>
         </header>
