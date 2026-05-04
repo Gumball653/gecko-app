@@ -1,18 +1,25 @@
-import React, { useEffect, useState } from "react";
-import { makeQrDataUrl, normalizeQrCode } from "./qrUtils";
+import React, { useEffect, useRef, useState } from "react";
+import QRCode from "qrcode";
+import { normalizeQrCode, QR_RENDER_OPTIONS } from "./qrUtils";
 
 export default function ProfileQrModal({ selected, onClose }) {
-  const [qrUrl, setQrUrl] = useState("");
+  const canvasRef = useRef(null);
+  const [status, setStatus] = useState("Building real QR...");
   const code = normalizeQrCode(selected?.qrCode || selected?.id || "");
 
   useEffect(() => {
     let active = true;
-    setQrUrl("");
 
     async function renderQr() {
-      if (!code) return;
-      const url = await makeQrDataUrl(code);
-      if (active) setQrUrl(url);
+      if (!canvasRef.current || !code) return;
+      setStatus("Building real QR...");
+      try {
+        await QRCode.toCanvas(canvasRef.current, code, QR_RENDER_OPTIONS);
+        if (active) setStatus("");
+      } catch (error) {
+        console.error("Real QR render failed", error);
+        if (active) setStatus("QR render failed. Check qrcode package install.");
+      }
     }
 
     renderQr();
@@ -52,11 +59,8 @@ export default function ProfileQrModal({ selected, onClose }) {
           <p className="mb-2 rounded-full bg-emerald-100 px-3 py-1 text-xs font-black uppercase tracking-wide text-emerald-800">Real scannable QR</p>
           <h2 className="text-xl font-black text-slate-950">{selected.name || "Reptile Notes"}</h2>
           <p className="mb-3 text-sm font-semibold text-slate-600">{selected.species || selected.type || selected.stage || "Profile"}</p>
-          {qrUrl ? (
-            <img src={qrUrl} alt={code} className="mx-auto h-64 w-64 bg-white" style={{ imageRendering: "pixelated" }} />
-          ) : (
-            <div className="mx-auto flex h-64 w-64 items-center justify-center rounded-xl bg-slate-100 text-sm font-semibold text-slate-500">Building real QR...</div>
-          )}
+          <canvas ref={canvasRef} aria-label={code} className="mx-auto h-64 w-64 bg-white" style={{ imageRendering: "pixelated" }} />
+          {status && <p className="mt-2 text-sm font-semibold text-slate-500">{status}</p>}
           <p className="mt-3 font-mono text-lg font-black text-black">{code}</p>
         </div>
 
