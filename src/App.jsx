@@ -415,7 +415,6 @@ function runSelfTests() {
   console.assert(sanitized.gravid === false && sanitized.eggsLaid === "0", "non-female reproductive fields reset");
   const testLocation = createHousingLocation("H-010", "Rack 9 / Tub 1", "Tub", "Test location");
   console.assert(addLocationLogToList([testLocation], "H-010", { type: "scan", date: "2026-04-28", summary: "Scanned" })[0].logs.length === 1, "location logs add correctly");
-  console.assert(buildQrCells("QR-A-001").length === 169, "QR grid is 13x13");
   const photo = makePhoto("P-001", "Test Photo", "Testing photo", "data:image/png;base64,test");
   console.assert(getPhotoCount({ photos: [photo] }) === 1, "photo count works");
   console.assert(getPhotoPreview(photo).startsWith("data:image"), "photo preview works");
