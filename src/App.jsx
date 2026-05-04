@@ -955,14 +955,33 @@ export default function AnimalQrTrackingApp() {
     setAnimals((prev) => prev.map((animal) => animal.id === selected.id ? { ...animal, photos: (animal.photos || []).filter((photo) => photo.id !== photoId) } : animal));
   }
 
-  function printQrCode() {
-    const cells = buildQrCells(selected.qrCode);
-    const squares = cells.map((filled) => `<span style="display:block;width:12px;height:12px;background:${filled ? "#111827" : "#ffffff"}"></span>`).join("");
-    const printWindow = window.open("", "_blank", "width=420,height=560");
-    if (!printWindow) return;
-    printWindow.document.write(`<html><head><title>${selected.name} QR Code</title></head><body style="font-family:Arial,sans-serif;display:flex;min-height:100vh;align-items:center;justify-content:center;margin:0;"><main style="text-align:center;border:1px solid #e5e7eb;border-radius:24px;padding:32px;"><h1 style="font-size:24px;margin:0 0 8px;">${selected.name}</h1><p style="margin:0 0 16px;color:#475569;">${selected.id} - ${selected.species || "Species not set"}</p><div style="display:grid;grid-template-columns:repeat(13,12px);gap:2px;padding:16px;border:1px solid #111827;margin:auto;width:max-content;">${squares}</div><p style="font-size:20px;font-weight:700;margin:16px 0 4px;">${selected.qrCode}</p><p style="font-size:12px;color:#64748b;margin:0;">Scan or enter this code to open the animal profile.</p></main><script>window.print();</script></body></html>`);
-    printWindow.document.close();
-  }
+ async function printQrCode() {
+  const qrUrl = await makeQrDataUrl(selected.qrCode);
+  const printWindow = window.open("", "_blank", "width=420,height=560");
+  if (!printWindow) return;
+
+  printWindow.document.write(`
+    <html>
+      <head>
+        <title>${selected.name} QR Code</title>
+      </head>
+      <body style="font-family:Arial,sans-serif;display:flex;min-height:100vh;align-items:center;justify-content:center;margin:0;">
+        <main style="text-align:center;border:1px solid #e5e7eb;border-radius:24px;padding:32px;">
+          <h1 style="font-size:24px;margin:0 0 8px;">${selected.name}</h1>
+          <p style="margin:0 0 16px;color:#475569;">${selected.id} - ${selected.species || "Species not set"}</p>
+          <img src="${qrUrl}" alt="${selected.qrCode}" style="width:260px;height:260px;image-rendering:pixelated;background:white;" />
+          <p style="font-size:20px;font-weight:700;margin:16px 0 4px;">${selected.qrCode}</p>
+          <p style="font-size:12px;color:#64748b;margin:0;">Scan or enter this code to open the animal profile.</p>
+        </main>
+        <script>
+          window.onload = () => window.print();
+        </script>
+      </body>
+    </html>
+  `);
+
+  printWindow.document.close();
+}
 
   function printLocationQrCode() {
     if (!selectedLocation) return;
