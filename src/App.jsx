@@ -735,6 +735,11 @@ export default function AnimalQrTrackingApp() {
     }));
   }
 
+  function requestDeleteSelectedAnimal() {
+  if (!selected || animals.length <= 1) return;
+  setShowDeleteConfirm(true);
+}
+  
   function openScannedCode(value) {
     const normalized = String(value || "").trim().toLowerCase();
     const animalMatch = animals.find((animal) => animal.qrCode.toLowerCase() === normalized || animal.id.toLowerCase() === normalized);
