@@ -241,6 +241,18 @@ function pickParents(group, animalMap) {
 function deleteBreedingGroupById(groups, groupId) {
   return groups.filter((group) => group.id !== groupId);
 }
+function deleteAnimalById(animals, animalId) {
+  return animals.filter((animal) => animal.id !== animalId);
+}
+
+function removeAnimalFromBreedingGroups(groups, animalId) {
+  return groups
+    .map((group) => ({
+      ...group,
+      animalIds: group.animalIds.filter((id) => id !== animalId),
+    }))
+    .filter((group) => group.animalIds.length > 0);
+}
 
 function makePhoto(id, title, note = "", dataUrl = "") {
   return { id, title, note, dataUrl, dateAdded: formatDate(new Date()) };
