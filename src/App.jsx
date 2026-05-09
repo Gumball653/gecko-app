@@ -1116,6 +1116,14 @@ function deleteSelectedAnimal() {
   <Icon name="qr" className="mr-2 h-4 w-4" /> QR Code
 </Button>
                       <Button variant="outline" onClick={() => setShowPedigree(true)} className="rounded-xl"><Icon name="branch" className="mr-2 h-4 w-4" /> Pedigree</Button>
+                    <Button
+  variant="outline"
+  onClick={requestDeleteSelectedAnimal}
+  className="rounded-xl border-red-200 text-red-700 hover:bg-red-50"
+  disabled={animals.length <= 1}
+>
+  Delete
+</Button>
                     </div>
                   </div>
                 </CardContent>
