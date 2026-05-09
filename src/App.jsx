@@ -850,6 +850,7 @@ export default function AnimalQrTrackingApp() {
     setSelectedId(newAnimal.id);
     setActiveTab("profile");
   }
+  
   function requestDeleteSelectedAnimal() {
   if (!selected || animals.length <= 1) return;
   setShowDeleteConfirm(true);
@@ -874,6 +875,7 @@ function deleteSelectedAnimal() {
   setShowPedigree(false);
   setRealQrProfile(null);
 }
+  
   function toggleGroupAnimal(id) {
     setGroupDraft((draft) => ({
       ...draft,
