@@ -606,6 +606,7 @@ export default function AnimalQrTrackingApp() {
   const [showPedigree, setShowPedigree] = useState(false);
   const [showQr, setShowQr] = useState(false);
   const [showLocationQr, setShowLocationQr] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [realQrProfile, setRealQrProfile] = useState(null);
   const [scanValue, setScanValue] = useState("QR-A-001");
   const [scanMessage, setScanMessage] = useState("");
