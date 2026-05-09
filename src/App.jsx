@@ -850,6 +850,29 @@ export default function AnimalQrTrackingApp() {
     setSelectedId(newAnimal.id);
     setActiveTab("profile");
   }
+  function requestDeleteSelectedAnimal() {
+  if (!selected || animals.length <= 1) return;
+  setShowDeleteConfirm(true);
+}
+
+function deleteSelectedAnimal() {
+  if (!selected || animals.length <= 1) return;
+
+  const remainingAnimals = deleteAnimalById(animals, selected.id);
+  const nextSelected = remainingAnimals[0];
+
+  setAnimals(remainingAnimals);
+  setBreedingGroups((prev) =>
+    removeAnimalFromBreedingGroups(prev, selected.id)
+  );
+
+  setSelectedId(nextSelected?.id || "");
+  setActiveTab(nextSelected?.stage === "egg" ? "egg" : "profile");
+
+  setShowDeleteConfirm(false);
+  setShowQr(false);
+  setShowPedigree(false);
+}
 
   function toggleGroupAnimal(id) {
     setGroupDraft((draft) => ({
