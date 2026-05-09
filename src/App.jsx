@@ -734,11 +734,6 @@ export default function AnimalQrTrackingApp() {
       return { ...animal, statusInfo: nextStatus, logs: [{ type: "status", date: today, summary: status === "Active" ? "Profile marked active" : `Profile marked inactive: ${nextStatus.reason}` }, ...(animal.logs || [])] };
     }));
   }
-
-  function requestDeleteSelectedAnimal() {
-  if (!selected || animals.length <= 1) return;
-  setShowDeleteConfirm(true);
-}
   
   function openScannedCode(value) {
     const normalized = String(value || "").trim().toLowerCase();
