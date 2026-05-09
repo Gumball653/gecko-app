@@ -877,8 +877,8 @@ function deleteSelectedAnimal() {
   setShowDeleteConfirm(false);
   setShowQr(false);
   setShowPedigree(false);
+  setRealQrProfile(null);
 }
-
   function toggleGroupAnimal(id) {
     setGroupDraft((draft) => ({
       ...draft,
