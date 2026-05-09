@@ -1256,42 +1256,41 @@ function deleteSelectedAnimal() {
       )}
 
       {showDeleteConfirm && selected && (
-  <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/70 p-4">
-    <div className="w-full max-w-sm rounded-3xl bg-white p-5 shadow-2xl">
-      <h2 className="text-xl font-black text-slate-950">Delete animal?</h2>
-      <p className="mt-2 text-sm text-slate-600">
-        This will permanently remove <strong>{selected.name}</strong> from animals/eggs and remove it from breeding groups.
-      </p>
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/70 p-4">
+          <div className="w-full max-w-sm rounded-3xl bg-white p-5 shadow-2xl">
+            <h2 className="text-xl font-black text-slate-950">Delete animal?</h2>
+            <p className="mt-2 text-sm text-slate-600">
+              This will permanently remove <strong>{selected.name}</strong> from animals/eggs and remove it from breeding groups.
+            </p>
 
-      <div className="mt-5 flex gap-2">
-        <Button
-          type="button"
-          variant="outline"
-          onClick={() => setShowDeleteConfirm(false)}
-          className="flex-1 rounded-xl"
-        >
-          Cancel
-        </Button>
-        <Button
-          type="button"
-          onClick={deleteSelectedAnimal}
-          className="flex-1 rounded-xl bg-red-600 text-white hover:bg-red-700"
-          disabled={animals.length <= 1}
-        >
-          Delete
-        </Button>
-      </div>
-    </div>
-  </div>
-)}
+            <div className="mt-5 flex gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setShowDeleteConfirm(false)}
+                className="flex-1 rounded-xl"
+              >
+                Cancel
+              </Button>
+              <Button
+                type="button"
+                onClick={deleteSelectedAnimal}
+                className="flex-1 rounded-xl bg-red-600 text-white hover:bg-red-700"
+                disabled={animals.length <= 1}
+              >
+                Delete
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
       
      {realQrProfile && (
-  <ProfileQrModal
-    selected={realQrProfile}
-    onClose={() => setRealQrProfile(null)}
-  />
-)}
-  </div>
+      <ProfileQrModal
+        selected={realQrProfile}
+        onClose={() => setRealQrProfile(null)}
+       />
+      )}
     </div>
   );
 }
