@@ -621,6 +621,7 @@ export default function AnimalQrTrackingApp() {
   const [installPrompt, setInstallPrompt] = useState(null);
   const videoRef = useRef(null);
   const streamRef = useRef(null);
+  const [showScanner, setShowScanner] = useState(false);
 
   const selected = animals.find((animal) => animal.id === selectedId) || animals[0];
   const animalMap = useMemo(() => Object.fromEntries(animals.map((animal) => [animal.id, animal])), [animals]);
