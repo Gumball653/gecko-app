@@ -2,7 +2,6 @@ import React from "react";
 import ReactDOM from "react-dom/client";
 import App from "./App";
 import LoginGate from "./LoginGate";
-import ScannerLauncher from "./ScannerLauncher";
 import QrTargetIndexer from "./QrTargetIndexer";
 import QrPrintPanel from "./QrPrintPanel";
 import InstallPrompt from "./InstallPrompt";
@@ -17,7 +16,6 @@ ReactDOM.createRoot(document.getElementById("root")).render(
         <ScanButtonBridge />
         <QrTargetIndexer />
         <App />
-        <ScannerLauncher />
         <QrPrintPanel />
         <InstallPrompt />
       </LoginGate>
