@@ -825,6 +825,34 @@ export default function AnimalQrTrackingApp() {
   function updateHousingLocation(locationId, path, value) {
     setHousingLocations((prev) => prev.map((location) => location.id === locationId ? { ...location, [path]: value } : location));
   }
+  
+  function deleteSelectedHousingLocation() {
+  if (!selectedLocation || housingLocations.length <= 1) return;
+
+  const deletedId = selectedLocation.id;
+  const remainingLocations = housingLocations.filter(
+    (location) => location.id !== deletedId
+  );
+
+  setHousingLocations(remainingLocations);
+
+  setAnimals((prev) =>
+    prev.map((animal) =>
+      animal.housing?.locationId === deletedId
+        ? {
+            ...animal,
+            housing: {
+              ...(animal.housing || {}),
+              locationId: "",
+              enclosure: "",
+            },
+          }
+        : animal
+    )
+  );
+
+  setSelectedLocationId(remainingLocations[0]?.id || "");
+}
 
   function addHousingLocationLog(locationId, type = locationLogDraft.type, summary = locationLogDraft.summary) {
     if (!locationId) return;
