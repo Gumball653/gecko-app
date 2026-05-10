@@ -753,48 +753,7 @@ export default function AnimalQrTrackingApp() {
   function scanQr() {
     openScannedCode(scanValue);
   }
-
-    if (!navigator.mediaDevices?.getUserMedia) {
-      setCameraMessage("Camera access is not available in this browser. Type or paste the QR code instead.");
-      return;
-    }
-    if (!("BarcodeDetector" in window)) {
-      setCameraMessage("Camera QR scanning is not supported in this browser. Type or paste the QR code instead.");
-      return;
-    }
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } });
-      streamRef.current = stream;
-      if (videoRef.current) videoRef.current.srcObject = stream;
-      setIsScanning(true);
-      setCameraMessage("Camera scanner started. Point at an animal or housing QR code.");
-      const detector = new window.BarcodeDetector({ formats: ["qr_code"] });
-      const tick = async () => {
-        if (!streamRef.current || !videoRef.current) return;
-        try {
-          const codes = await detector.detect(videoRef.current);
-          if (codes.length > 0) {
-            const value = codes[0].rawValue;
-            setScanValue(value);
-            if (openScannedCode(value)) stopCameraScanner();
-          }
-        } catch {}
-        if (streamRef.current) requestAnimationFrame(tick);
-      };
-      requestAnimationFrame(tick);
-    } catch {
-      setCameraMessage("Camera access was blocked or unavailable.");
-    }
-  }
-
-  function stopCameraScanner() {
-    if (streamRef.current) {
-      streamRef.current.getTracks().forEach((track) => track.stop());
-      streamRef.current = null;
-    }
-    setIsScanning(false);
-  }
-
+  
   async function installApp() {
     if (!installPrompt) return;
     await installPrompt.prompt();
