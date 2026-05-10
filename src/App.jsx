@@ -1244,7 +1244,31 @@ function deleteSelectedAnimal() {
                 </Card>
                 <div className="space-y-4">
                   <Card className="rounded-3xl border-slate-200 shadow-sm"><CardContent className="space-y-4 p-4 sm:p-5"><MobileSectionTitle icon="plus" title="Add housing location" subtitle="Create printable QR codes for racks, tubs, cages, bins, shelves, or incubator boxes." /><Field label="Location name"><Input value={locationDraft.name} onChange={(event) => setLocationDraft({ ...locationDraft, name: event.target.value })} /></Field><Field label="Location type"><Input value={locationDraft.type} onChange={(event) => setLocationDraft({ ...locationDraft, type: event.target.value })} /></Field><Field label="Location note"><Textarea value={locationDraft.note} onChange={(event) => setLocationDraft({ ...locationDraft, note: event.target.value })} /></Field><Button onClick={addHousingLocation} className="w-full rounded-xl py-5 sm:py-2" disabled={!locationDraft.name.trim()}>Add location</Button></CardContent></Card>
-                  {selectedLocation && <Card className="rounded-3xl border-slate-200 shadow-sm"><CardContent className="space-y-4 p-4 sm:p-5"><MobileSectionTitle icon="qr" title={selectedLocation.name} subtitle={`${selectedLocation.id} - ${selectedLocation.qrCode}`} /><Field label="Location name"><Input value={selectedLocation.name} onChange={(event) => updateHousingLocation(selectedLocation.id, "name", event.target.value)} /></Field><Field label="Location type"><Input value={selectedLocation.type || ""} onChange={(event) => updateHousingLocation(selectedLocation.id, "type", event.target.value)} /></Field><Field label="Location note"><Textarea value={selectedLocation.note || ""} onChange={(event) => updateHousingLocation(selectedLocation.id, "note", event.target.value)} /></Field><div className="grid gap-2 sm:grid-cols-2"><Button variant="outline" onClick={() => setShowLocationQr(true)} className="rounded-xl"><Icon name="qr" className="mr-2 h-4 w-4" /> View / print QR</Button><Button onClick={() => addHousingLocationLog(selectedLocation.id)} className="rounded-xl"><Icon name="save" className="mr-2 h-4 w-4" /> Quick check log</Button></div></CardContent></Card>}
+                  {selectedLocation && <Card className="rounded-3xl border-slate-200 shadow-sm"><CardContent className="space-y-4 p-4 sm:p-5"><MobileSectionTitle icon="qr" title={selectedLocation.name} subtitle={`${selectedLocation.id} - ${selectedLocation.qrCode}`} /><Field label="Location name"><Input value={selectedLocation.name} onChange={(event) => updateHousingLocation(selectedLocation.id, "name", event.target.value)} /></Field><Field label="Location type"><Input value={selectedLocation.type || ""} onChange={(event) => updateHousingLocation(selectedLocation.id, "type", event.target.value)} /></Field><Field label="Location note"><Textarea value={selectedLocation.note || ""} onChange={(event) => updateHousingLocation(selectedLocation.id, "note", event.target.value)} /></Field><div className="grid gap-2 sm:grid-cols-3">
+  <Button
+    variant="outline"
+    onClick={() => setShowLocationQr(true)}
+    className="rounded-xl"
+  >
+    <Icon name="qr" className="mr-2 h-4 w-4" /> View / print QR
+  </Button>
+
+  <Button
+    onClick={() => addHousingLocationLog(selectedLocation.id)}
+    className="rounded-xl"
+  >
+    <Icon name="save" className="mr-2 h-4 w-4" /> Quick check log
+  </Button>
+
+  <Button
+    variant="outline"
+    onClick={deleteSelectedHousingLocation}
+    className="rounded-xl border-red-200 text-red-700 hover:bg-red-50"
+    disabled={housingLocations.length <= 1}
+  >
+    Delete Location
+  </Button>
+</div></CardContent></Card>}
                 </div>
                 {selectedLocation && <Card className="rounded-3xl border-slate-200 shadow-sm xl:col-span-2"><CardContent className="space-y-4 p-4 sm:p-5"><div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between"><MobileSectionTitle icon="clipboard" title="Location log" subtitle={`Individual log history for ${selectedLocation.name}.`} /><span className="rounded-full bg-slate-100 px-3 py-1 text-sm font-semibold text-slate-700">{(selectedLocation.logs || []).length} logs</span></div><div className="grid gap-4 md:grid-cols-3"><Field label="Log type"><Input value={locationLogDraft.type} onChange={(event) => setLocationLogDraft({ ...locationLogDraft, type: event.target.value })} /></Field><div className="md:col-span-2"><Field label="Log note"><Input value={locationLogDraft.summary} onChange={(event) => setLocationLogDraft({ ...locationLogDraft, summary: event.target.value })} /></Field></div></div><Button onClick={() => addHousingLocationLog(selectedLocation.id)} className="w-full rounded-xl py-5 sm:py-2"><Icon name="save" className="mr-2 h-4 w-4" /> Add location log</Button><div className="space-y-2">{(selectedLocation.logs || []).length === 0 && <p className="rounded-2xl bg-slate-50 p-4 text-sm text-slate-500">No logs for this housing location yet.</p>}{(selectedLocation.logs || []).map((log, index) => <div key={`${log.date}-${index}`} className="rounded-2xl border border-slate-200 bg-white p-4"><div className="flex items-center justify-between gap-3"><span className="font-semibold capitalize">{log.type}</span><span className="text-sm text-slate-500">{log.date}</span></div><p className="mt-2 text-sm text-slate-600">{log.summary}</p></div>)}</div></CardContent></Card>}
               </section>
