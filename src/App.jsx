@@ -1218,8 +1218,7 @@ function deleteSelectedAnimal() {
                       </Button>
                     </div>
                   </CardContent>
-                </Card>
-              )}
+                </Card>}
 
                 {selectedLocation && <Card className="rounded-3xl border-slate-200 shadow-sm xl:col-span-2">
 
