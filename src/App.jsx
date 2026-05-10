@@ -754,11 +754,6 @@ export default function AnimalQrTrackingApp() {
     openScannedCode(scanValue);
   }
 
-  async function startCameraScanner() {
-    if (!window.isSecureContext) {
-      setCameraMessage("Camera scanning requires HTTPS. Deploy to https://reptilenotes.com or use localhost while testing.");
-      return;
-    }
     if (!navigator.mediaDevices?.getUserMedia) {
       setCameraMessage("Camera access is not available in this browser. Type or paste the QR code instead.");
       return;
