@@ -1292,6 +1292,38 @@ function deleteSelectedAnimal() {
           </div>
         </div>
       )}
+
+      {showScanner && (
+  <div className="fixed inset-0 z-[9999] flex items-end justify-center bg-slate-900/70 p-0 sm:items-center sm:p-4">
+    <Card className="max-h-[92vh] w-full max-w-md overflow-auto rounded-t-3xl border-slate-200 shadow-2xl sm:rounded-3xl">
+      <CardContent className="space-y-4 p-4 sm:p-6">
+        <div className="flex items-center justify-between gap-4">
+          <div>
+            <h3 className="text-2xl font-bold">Scan QR</h3>
+            <p className="text-sm text-slate-500">
+              Point the camera at an animal, egg, or housing QR code.
+            </p>
+          </div>
+          <Button
+            variant="ghost"
+            onClick={() => setShowScanner(false)}
+            className="rounded-xl"
+          >
+            <Icon name="close" className="h-5 w-5" />
+          </Button>
+        </div>
+
+        <QrScanner
+          onScan={(value) => {
+            setScanValue(value);
+            const opened = openScannedCode(value);
+            if (opened) setShowScanner(false);
+          }}
+        />
+      </CardContent>
+    </Card>
+  </div>
+)}
       
      {realQrProfile && (
       <ProfileQrModal
