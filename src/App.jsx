@@ -596,6 +596,52 @@ function PedigreeInput({ pedigree, path, label, onChange }) {
   return <Field label={label}><Input value={getPedigreeNameAtPath(pedigree, path)} onChange={(event) => onChange(path, event.target.value)} /></Field>;
 }
 
+const MAX_PHOTO_UPLOAD_MB = 12;
+const FULL_PHOTO_MAX_WIDTH = 1200;
+const THUMB_PHOTO_MAX_WIDTH = 320;
+const PHOTO_JPEG_QUALITY = 0.72;
+const THUMB_JPEG_QUALITY = 0.62;
+
+function fileSizeMb(file) {
+  return file.size / 1024 / 1024;
+}
+
+function loadImageFromFile(file) {
+  return new Promise((resolve, reject) => {
+    const url = URL.createObjectURL(file);
+    const image = new Image();
+
+    image.onload = () => {
+      URL.revokeObjectURL(url);
+      resolve(image);
+    };
+
+    image.onerror = () => {
+      URL.revokeObjectURL(url);
+      reject(new Error("Could not load image."));
+    };
+
+    image.src = url;
+  });
+}
+
+async function resizeImageFile(file, maxWidth, quality = 0.72) {
+  const image = await loadImageFromFile(file);
+
+  const scale = Math.min(1, maxWidth / image.width);
+  const width = Math.max(1, Math.round(image.width * scale));
+  const height = Math.max(1, Math.round(image.height * scale));
+
+  const canvas = document.createElement("canvas");
+  canvas.width = width;
+  canvas.height = height;
+
+  const context = canvas.getContext("2d");
+  context.drawImage(image, 0, 0, width, height);
+
+  return canvas.toDataURL("image/jpeg", quality);
+}
+
 export default function AnimalQrTrackingApp() {
   const savedState = loadSavedAppState();
   const [animals, setAnimals] = useState(() => savedState?.animals || initialAnimals.map((animal) => ({ ...animal, _lastSaved: getProfileSnapshot(animal) })));
