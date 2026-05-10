@@ -1069,7 +1069,13 @@ function deleteSelectedAnimal() {
                   <Button onClick={scanQr} className="rounded-xl">Open</Button>
                 </div>
                 <div className="grid gap-2 sm:grid-cols-2">
-                  <Button variant="outline" onClick={isScanning ? stopCameraScanner : startCameraScanner} className="rounded-xl">{isScanning ? "Stop camera" : "Camera scan"}</Button>
+                 <Button
+                   variant="outline"
+                   onClick={() => setShowScanner(true)}
+                  className="rounded-xl"
+                >
+                  Scan QR
+                </Button>
                   <Button variant="outline" onClick={installApp} className="rounded-xl" disabled={!installPrompt}>Install app</Button>
                 </div>
                 {isScanning && <video ref={videoRef} autoPlay muted playsInline className="h-48 w-full rounded-2xl bg-slate-900 object-cover" />}
