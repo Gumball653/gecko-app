@@ -1077,7 +1077,6 @@ function deleteSelectedAnimal() {
                 </Button>
                   <Button variant="outline" onClick={installApp} className="rounded-xl" disabled={!installPrompt}>Install app</Button>
                 </div>
-                {cameraMessage && <p className="rounded-xl bg-slate-100 px-3 py-2 text-xs text-slate-700">{cameraMessage}</p>}
                 <p className="text-xs text-slate-500">Scanner accepts animal ID, location ID, QR value, or camera QR scan when supported.</p>
                 {scanMessage && <p className="rounded-xl bg-slate-100 px-3 py-2 text-xs text-slate-700">{scanMessage}</p>}
               </CardContent>
