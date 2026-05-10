@@ -264,7 +264,7 @@ function getPhotoCount(animal) {
 }
 
 function getPhotoPreview(photo) {
-  return photo?.dataUrl || "";
+  return photo?.thumbUrl || photo?.dataUrl || "";
 }
 
 function functionSafeId(value) {
