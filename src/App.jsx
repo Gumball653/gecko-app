@@ -990,18 +990,59 @@ function deleteSelectedAnimal() {
     }));
   }
 
-  function addPhotoFromFile(file) {
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = () => {
-      const photoId = `P-${functionSafeId(selected.id)}-${Date.now()}`;
-      const photo = makePhoto(photoId, photoDraft.title || file.name || "Animal photo", photoDraft.note, String(reader.result || ""));
-      setAnimals((prev) => prev.map((animal) => animal.id === selected.id ? { ...animal, photos: [photo, ...(animal.photos || [])] } : animal));
-      setPhotoDraft({ title: "", note: "" });
-      addLog("photo", `Added photo: ${photo.title}`);
-    };
-    reader.readAsDataURL(file);
+  async function addPhotoFromFile(file) {
+  if (!file || photoProcessing) return;
+
+  if (!file.type?.startsWith("image/")) {
+    setPhotoMessage("Please choose an image file.");
+    return;
   }
+
+  if (fileSizeMb(file) > MAX_PHOTO_UPLOAD_MB) {
+    setPhotoMessage(`Photo is too large. Choose an image under ${MAX_PHOTO_UPLOAD_MB} MB.`);
+    return;
+  }
+
+  try {
+    setPhotoProcessing(true);
+    setPhotoMessage("Processing photo...");
+
+    const [dataUrl, thumbUrl] = await Promise.all([
+      resizeImageFile(file, FULL_PHOTO_MAX_WIDTH, PHOTO_JPEG_QUALITY),
+      resizeImageFile(file, THUMB_PHOTO_MAX_WIDTH, THUMB_JPEG_QUALITY),
+    ]);
+
+    const photoId = `P-${functionSafeId(selected.id)}-${Date.now()}`;
+    const photo = {
+      ...makePhoto(
+        photoId,
+        photoDraft.title || file.name || "Animal photo",
+        photoDraft.note,
+        dataUrl
+      ),
+      thumbUrl,
+      originalName: file.name || "",
+      originalSizeMb: Number(fileSizeMb(file).toFixed(2)),
+      optimized: true,
+    };
+
+    setAnimals((prev) =>
+      prev.map((animal) =>
+        animal.id === selected.id
+          ? { ...animal, photos: [photo, ...(animal.photos || [])] }
+          : animal
+      )
+    );
+
+    setPhotoDraft({ title: "", note: "" });
+    setPhotoMessage("Photo added and optimized.");
+    addLog("photo", `Added optimized photo: ${photo.title}`);
+  } catch (error) {
+    setPhotoMessage("Photo could not be processed. Try a smaller image.");
+  } finally {
+    setPhotoProcessing(false);
+  }
+}
 
   function updatePhoto(photoId, field, value) {
     setAnimals((prev) => prev.map((animal) => animal.id === selected.id ? { ...animal, photos: (animal.photos || []).map((photo) => photo.id === photoId ? { ...photo, [field]: value } : photo) } : animal));
