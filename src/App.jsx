@@ -662,6 +662,8 @@ export default function AnimalQrTrackingApp() {
   const [locationLogDraft, setLocationLogDraft] = useState({ type: "scan", summary: "" });
   const [groupDraft, setGroupDraft] = useState({ name: "", animalIds: [], notes: "" });
   const [photoDraft, setPhotoDraft] = useState({ title: "", note: "" });
+  const [photoMessage, setPhotoMessage] = useState("");
+  const [photoProcessing, setPhotoProcessing] = useState(false);
   const [installPrompt, setInstallPrompt] = useState(null);
   const [showScanner, setShowScanner] = useState(false);
 
