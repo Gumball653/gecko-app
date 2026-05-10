@@ -649,10 +649,6 @@ export default function AnimalQrTrackingApp() {
     return () => window.removeEventListener("beforeinstallprompt", handleBeforeInstallPrompt);
   }, []);
 
-  useEffect(() => {
-    return () => stopCameraScanner();
-  }, []);
-
   function updateSelected(path, value) {
     setAnimals((prev) => prev.map((animal) => {
       if (animal.id !== selected.id) return animal;
