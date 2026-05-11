@@ -1313,7 +1313,7 @@ function deleteSelectedAnimal() {
               </section>
             )}
 
-            {activeTab === "photos" && (
+{activeTab === "photos" && (
   <section className="space-y-4">
     <Card className="rounded-3xl border-slate-200 shadow-sm">
       <CardContent className="space-y-4 p-5">
