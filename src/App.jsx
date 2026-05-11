@@ -1314,8 +1314,130 @@ function deleteSelectedAnimal() {
             )}
 
             {activeTab === "photos" && (
-              <section className="space-y-4"><Card className="rounded-3xl border-slate-200 shadow-sm"><CardContent className="space-y-4 p-5"><div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between"><MobileSectionTitle icon="photo" title="Photos" subtitle={`Store profile and husbandry pictures for ${selected.name}.`} /><span className="rounded-full bg-slate-100 px-3 py-1 text-sm font-semibold text-slate-700">{getPhotoCount(selected)} stored</span></div><div className="rounded-3xl border border-dashed border-slate-300 bg-slate-50 p-4"><div className="grid gap-4 sm:grid-cols-2"><Field label="Photo title"><Input value={photoDraft.title} onChange={(event) => setPhotoDraft({ ...photoDraft, title: event.target.value })} />
-              
+  <section className="space-y-4">
+    <Card className="rounded-3xl border-slate-200 shadow-sm">
+      <CardContent className="space-y-4 p-5">
+        <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
+          <MobileSectionTitle
+            icon="photo"
+            title="Photos"
+            subtitle={`Store optimized profile and husbandry pictures for ${selected.name}.`}
+          />
+          <span className="rounded-full bg-slate-100 px-3 py-1 text-sm font-semibold text-slate-700">
+            {getPhotoCount(selected)} stored
+          </span>
+        </div>
+
+        <div className="rounded-3xl border border-dashed border-slate-300 bg-slate-50 p-4">
+          <div className="grid gap-4 sm:grid-cols-2">
+            <Field label="Photo title">
+              <Input
+                value={photoDraft.title}
+                onChange={(event) =>
+                  setPhotoDraft({ ...photoDraft, title: event.target.value })
+                }
+              />
+            </Field>
+
+            <Field label="Choose image">
+              <Input
+                type="file"
+                accept="image/*"
+                capture="environment"
+                disabled={photoProcessing}
+                onChange={(event) => {
+                  addPhotoFromFile(event.target.files?.[0]);
+                  event.target.value = "";
+                }}
+              />
+            </Field>
+
+            <div className="md:col-span-2">
+              <Field label="Photo note">
+                <Textarea
+                  value={photoDraft.note}
+                  onChange={(event) =>
+                    setPhotoDraft({ ...photoDraft, note: event.target.value })
+                  }
+                />
+              </Field>
+            </div>
+          </div>
+
+          {photoMessage && (
+            <p className="mt-3 rounded-xl bg-slate-100 px-3 py-2 text-sm text-slate-700">
+              {photoMessage}
+            </p>
+          )}
+        </div>
+      </CardContent>
+    </Card>
+
+    {(selected.photos || []).length === 0 ? (
+      <Card className="rounded-3xl border-slate-200 shadow-sm">
+        <CardContent className="p-8 text-center text-slate-500">
+          <p className="font-semibold text-slate-700">No photos stored yet</p>
+        </CardContent>
+      </Card>
+    ) : (
+      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+        {(selected.photos || []).map((photo) => (
+          <Card
+            key={photo.id}
+            className="overflow-hidden rounded-3xl border-slate-200 shadow-sm"
+          >
+            <div className="flex aspect-video items-center justify-center bg-slate-100">
+              {getPhotoPreview(photo) ? (
+                <img
+                  src={getPhotoPreview(photo)}
+                  alt={photo.title || "Animal photo"}
+                  className="h-full w-full object-cover"
+                />
+              ) : (
+                <div className="text-center text-slate-500">Photo placeholder</div>
+              )}
+            </div>
+
+            <CardContent className="space-y-3 p-3 sm:p-4">
+              <Field label="Title">
+                <Input
+                  value={photo.title || ""}
+                  onChange={(event) =>
+                    updatePhoto(photo.id, "title", event.target.value)
+                  }
+                />
+              </Field>
+
+              <Field label="Note">
+                <Textarea
+                  value={photo.note || ""}
+                  onChange={(event) =>
+                    updatePhoto(photo.id, "note", event.target.value)
+                  }
+                />
+              </Field>
+
+              <div className="flex items-center justify-between gap-3 text-xs text-slate-500">
+                <span>
+                  Added {photo.dateAdded || "-"}
+                  {photo.optimized ? " • optimized" : ""}
+                </span>
+
+                <Button
+                  variant="outline"
+                  onClick={() => removePhoto(photo.id)}
+                  className="rounded-xl"
+                >
+                  <Icon name="close" className="mr-2 h-4 w-4" /> Remove
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        ))}
+      </div>
+    )}
+  </section>
+)}
               </Field>
                 
               <Field label="Choose image">
