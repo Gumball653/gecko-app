@@ -1314,7 +1314,10 @@ function deleteSelectedAnimal() {
             )}
 
             {activeTab === "photos" && (
-              <section className="space-y-4"><Card className="rounded-3xl border-slate-200 shadow-sm"><CardContent className="space-y-4 p-5"><div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between"><MobileSectionTitle icon="photo" title="Photos" subtitle={`Store profile and husbandry pictures for ${selected.name}.`} /><span className="rounded-full bg-slate-100 px-3 py-1 text-sm font-semibold text-slate-700">{getPhotoCount(selected)} stored</span></div><div className="rounded-3xl border border-dashed border-slate-300 bg-slate-50 p-4"><div className="grid gap-4 sm:grid-cols-2"><Field label="Photo title"><Input value={photoDraft.title} onChange={(event) => setPhotoDraft({ ...photoDraft, title: event.target.value })} /></Field>
+              <section className="space-y-4"><Card className="rounded-3xl border-slate-200 shadow-sm"><CardContent className="space-y-4 p-5"><div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between"><MobileSectionTitle icon="photo" title="Photos" subtitle={`Store profile and husbandry pictures for ${selected.name}.`} /><span className="rounded-full bg-slate-100 px-3 py-1 text-sm font-semibold text-slate-700">{getPhotoCount(selected)} stored</span></div><div className="rounded-3xl border border-dashed border-slate-300 bg-slate-50 p-4"><div className="grid gap-4 sm:grid-cols-2"><Field label="Photo title"><Input value={photoDraft.title} onChange={(event) => setPhotoDraft({ ...photoDraft, title: event.target.value })} />
+              
+              </Field>
+                
               <Field label="Choose image">
                 <Input
                   type="file"
@@ -1326,7 +1329,26 @@ function deleteSelectedAnimal() {
                     event.target.value = "";
                   }}
                 />
-              </Field>  
+              </Field>
+
+              <div className="md:col-span-2">
+                <Field label="Photo note">
+                  <Textarea
+                    value={photoDraft.note}
+                    onChange={(event) =>
+                      setPhotoDraft({ ...photoDraft, note: event.target.value })
+                    }
+                  />
+                </Field>
+              </div>
+            </div>
+
+            {photoMessage && (
+              <p className="mt-3 rounded-xl bg-slate-100 px-3 py-2 text-sm text-slate-700">
+                {photoMessage}
+              </p>
+            )}
+          </div>
                 
             {activeTab === "housing" && (
               <section className="space-y-4"><div className="grid gap-3 md:grid-cols-3"><StatCard icon="temp" label="Temperature" value={selected.housing?.temperature} /><StatCard icon="drop" label="Humidity" value={selected.housing?.humidity} /><StatCard icon="home" label="Last cleaned" value={`${selected.housing?.lastCleaned?.date || "-"} - ${selected.housing?.lastCleaned?.type || ""}`} /><StatCard icon="qr" label="Housing QR" value={selectedAnimalLocation?.qrCode || "No location"} /></div><Card className="rounded-3xl border-slate-200 shadow-sm"><CardContent className="grid gap-4 p-4 sm:p-5 md:grid-cols-2"><Field label="Assigned housing location"><Select value={selected.housing?.locationId || ""} onChange={(event) => assignSelectedAnimalToLocation(event.target.value)}><option value="">No linked location</option>{housingLocations.map((location) => <option key={location.id} value={location.id}>{location.name} - {location.qrCode}</option>)}</Select></Field><Field label="Enclosure / housing location"><Input value={selected.housing?.enclosure || ""} onChange={(event) => updateSelected("housing.enclosure", event.target.value)} /></Field><Field label="Bedding type"><Select value={selected.housing?.bedding || "Aspen"} onChange={(event) => updateSelected("housing.bedding", event.target.value)}>{BEDDING_OPTIONS.map((option) => <option key={option}>{option}</option>)}</Select></Field><Field label="Temperature"><Input value={selected.housing?.temperature || ""} onChange={(event) => updateSelected("housing.temperature", event.target.value)} /></Field><Field label="Humidity"><Input value={selected.housing?.humidity || ""} onChange={(event) => updateSelected("housing.humidity", event.target.value)} /></Field><Field label="Last cleaned"><Input type="date" value={selected.housing?.lastCleaned?.date || ""} onChange={(event) => updateSelected("housing.lastCleaned.date", event.target.value)} /></Field><Field label="Clean type"><Select value={selected.housing?.lastCleaned?.type || "Partial clean"} onChange={(event) => updateSelected("housing.lastCleaned.type", event.target.value)}>{CLEAN_OPTIONS.map((option) => <option key={option}>{option}</option>)}</Select></Field><Field label="Cleaning note"><Textarea value={selected.housing?.lastCleaned?.note || ""} onChange={(event) => updateSelected("housing.lastCleaned.note", event.target.value)} /></Field><div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-end"><Button variant="outline" onClick={() => { if (selected.housing?.locationId) { setSelectedLocationId(selected.housing.locationId); setShowLocationQr(true); } }} className="rounded-xl" disabled={!selected.housing?.locationId}><Icon name="qr" className="mr-2 h-4 w-4" /> View location QR</Button><Button onClick={() => { addLog("cleaning", `${selected.housing?.lastCleaned?.type || "Clean"} - ${selected.housing?.lastCleaned?.note || "housing cleaned"}`); if (selected.housing?.locationId) addHousingLocationLog(selected.housing.locationId, "cleaning", `${selected.housing?.lastCleaned?.type || "Clean"} - ${selected.housing?.lastCleaned?.note || "housing cleaned"}`); }} className="rounded-xl"><Icon name="save" className="mr-2 h-4 w-4" /> Save housing log</Button></div></CardContent></Card></section>
