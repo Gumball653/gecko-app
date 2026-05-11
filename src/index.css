@@ -119,7 +119,7 @@ select {
 @media print {
   @page {
     size: auto;
-    margin: 0.25in;
+    margin: 0.35in;
   }
 
   html,
@@ -127,7 +127,9 @@ select {
   #root {
     margin: 0 !important;
     padding: 0 !important;
-    min-height: auto !important;
+    min-height: 0 !important;
+    height: auto !important;
+    overflow: visible !important;
     background: white !important;
   }
 
@@ -141,27 +143,35 @@ select {
   }
 
   #qr-print-area {
-    position: absolute !important;
-    left: 0 !important;
-    top: 0 !important;
-    width: 100% !important;
+    position: fixed !important;
+    inset: 0 auto auto 0 !important;
+    display: grid !important;
+    width: auto !important;
     max-width: none !important;
     margin: 0 !important;
     padding: 0 !important;
-    gap: 0.12in !important;
+    gap: 0.08in !important;
     background: white !important;
+    overflow: visible !important;
   }
 
   .qr-label {
     break-inside: avoid !important;
     page-break-inside: avoid !important;
+    overflow: hidden !important;
     border-color: #000 !important;
     box-shadow: none !important;
+  }
+
+  .qr-label img {
+    max-width: 0.95in !important;
+    max-height: 0.95in !important;
   }
 
   .qr-label input {
     border: 0 !important;
     background: transparent !important;
     color: #000 !important;
+    padding: 0 !important;
   }
 }
