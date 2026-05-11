@@ -2,9 +2,9 @@ import React, { useMemo, useState } from "react";
 import { makeQrDataUrl, normalizeQrCode } from "./qrUtils";
 
 const LABEL_SIZES = {
-  small: { name: "Small rack labels", cols: 3, width: "2.5in", height: "1.5in", qrClass: "h-24 w-24" },
-  medium: { name: "Medium enclosure labels", cols: 2, width: "3.25in", height: "2.0in", qrClass: "h-28 w-28" },
-  large: { name: "Large display labels", cols: 2, width: "3.75in", height: "2.5in", qrClass: "h-36 w-36" },
+  small: { name: "Small rack labels - 18 per page", cols: 3, width: "2.35in", height: "1.35in", qrClass: "h-20 w-20", defaultCount: 18 },
+  medium: { name: "Medium enclosure labels - 12 per page", cols: 3, width: "2.35in", height: "1.95in", qrClass: "h-24 w-24", defaultCount: 12 },
+  large: { name: "Large display labels - 8 per page", cols: 2, width: "3.45in", height: "2.45in", qrClass: "h-32 w-32", defaultCount: 8 },
 };
 
 function pad(number) {
@@ -37,8 +37,8 @@ export default function QrPrintPanel() {
   const [open, setOpen] = useState(false);
   const [prefix, setPrefix] = useState("QR-A");
   const [start, setStart] = useState(1);
-  const [count, setCount] = useState(12);
   const [labelSize, setLabelSize] = useState("medium");
+  const [count, setCount] = useState(LABEL_SIZES.medium.defaultCount);
   const [bulkText, setBulkText] = useState("QR-A-001,Juno,Ball Python,Pastel het Pied\nQR-A-002,Atlas,Ball Python,Clown line\nQR-H-001,Rack 2 Tub 7,Housing,Adult female tub");
   const [labels, setLabels] = useState([]);
   const [message, setMessage] = useState("");
@@ -113,7 +113,11 @@ export default function QrPrintPanel() {
                 Label size
                 <select
                   value={labelSize}
-                  onChange={(event) => setLabelSize(event.target.value)}
+                  onChange={(event) => {
+                    const nextSize = event.target.value;
+                    setLabelSize(nextSize);
+                    setCount(LABEL_SIZES[nextSize].defaultCount);
+                  }}
                   className="mt-1 w-full rounded-xl border border-slate-300 bg-white px-3 py-2"
                 >
                   {Object.entries(LABEL_SIZES).map(([key, item]) => (
@@ -192,7 +196,7 @@ export default function QrPrintPanel() {
             {labels.map((label, index) => (
               <div
                 key={`${label.code}-${index}`}
-                className="qr-label flex items-center gap-3 rounded border-2 border-slate-950 bg-white p-2"
+                className="qr-label flex items-center gap-2 rounded border-2 border-slate-950 bg-white p-2"
                 style={{ width: size.width, height: size.height }}
               >
                 <img src={label.img} alt={label.code} className={`${size.qrClass} shrink-0 bg-white`} style={{ imageRendering: "pixelated" }} />
