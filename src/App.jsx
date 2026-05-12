@@ -684,6 +684,29 @@ export default function AnimalQrTrackingApp() {
     saveAppState({ animals, breedingGroups, housingLocations });
   }, [animals, breedingGroups, housingLocations]);
 
+useEffect(() => {
+  if (typeof window === "undefined") return;
+
+  window.__REPTILE_NOTES_QR_ITEMS__ = [
+    ...animals.map((animal) => ({
+      code: animal.qrCode || animal.id,
+      name: animal.name || animal.id,
+      species: animal.species || animal.stage || "Animal",
+      morph: animal.morph || animal.statusInfo?.status || "",
+      notes: animal.statusInfo?.reason || "",
+      type: animal.stage || "animal",
+    })),
+    ...housingLocations.map((location) => ({
+      code: location.qrCode || location.id,
+      name: location.name || location.id,
+      species: location.type || "Housing location",
+      morph: location.note || "",
+      notes: location.note || "",
+      type: "housing",
+    })),
+  ];
+}, [animals, housingLocations]);
+  
   useEffect(() => {
     registerServiceWorker();
   }, []);
