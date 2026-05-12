@@ -1304,7 +1304,13 @@ function deleteSelectedAnimal() {
                   <CardContent className="space-y-4 p-4 sm:p-5">
                     <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                       <MobileSectionTitle icon="home" title="Housing locations" subtitle="Each housing location has its own QR code and individual log history." />
-                      <Button onClick={() => setShowLocationQr(true)} className="rounded-xl" disabled={!selectedLocation}><Icon name="qr" className="mr-2 h-4 w-4" /> View QR</Button>
+                      <Button
+                        onClick={() => setRealQrProfile(selectedLocation)}
+                        className="rounded-xl"
+                        disabled={!selectedLocation}
+                      >
+                        <Icon name="qr" className="mr-2 h-4 w-4" /> View QR
+                      </Button>
                     </div>
                     <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
                       {housingLocations.map((location) => {
@@ -1328,8 +1334,9 @@ function deleteSelectedAnimal() {
                     <div className="grid gap-2 sm:grid-cols-3">
                       <Button
                         variant="outline"
-                        onClick={() => setShowLocationQr(true)}
+                        onClick={() => setRealQrProfile(selectedLocation)}
                         className="rounded-xl"
+                        disabled={!selectedLocation}
                       >
                         <Icon name="qr" className="mr-2 h-4 w-4" /> View / print QR
                       </Button>
