@@ -5,6 +5,9 @@ const LABEL_SIZES = {
   small: { name: "Small rack labels - 18 per page", cols: 3, width: "2.35in", height: "1.35in", qrClass: "h-20 w-20", defaultCount: 18 },
   medium: { name: "Medium enclosure labels - 12 per page", cols: 3, width: "2.35in", height: "1.95in", qrClass: "h-24 w-24", defaultCount: 12 },
   large: { name: "Large display labels - 8 per page", cols: 2, width: "3.45in", height: "2.45in", qrClass: "h-32 w-32", defaultCount: 8 },
+  niimbot40x30: { name: "NIIMBOT B21 Pro - 40mm x 30mm", cols: 1, width: "40mm", height: "30mm", qrClass: "h-20 w-20", defaultCount: 1, niimbot: true },
+  niimbot50x30: { name: "NIIMBOT B21 Pro - 50mm x 30mm", cols: 1, width: "50mm", height: "30mm", qrClass: "h-20 w-20", defaultCount: 1, niimbot: true },
+  niimbot50x40: { name: "NIIMBOT B21 Pro - 50mm x 40mm", cols: 1, width: "50mm", height: "40mm", qrClass: "h-24 w-24", defaultCount: 1, niimbot: true },
 };
 
 function pad(number) {
@@ -79,6 +82,7 @@ export default function QrPrintPanel() {
 
   const printStyle = useMemo(() => ({
     gridTemplateColumns: `repeat(${size.cols}, ${size.width})`,
+    width: size.niimbot ? size.width : undefined,
   }), [size]);
 
   return (
@@ -158,6 +162,12 @@ export default function QrPrintPanel() {
               </label>
             </div>
 
+            {size.niimbot && (
+              <p className="rounded-xl bg-emerald-50 px-3 py-2 text-sm font-semibold text-emerald-800">
+                NIIMBOT mode: set the browser print paper size to the matching label size ({size.width} x {size.height}), scale to 100%, and print one label per page/label.
+              </p>
+            )}
+
             <label className="text-sm font-semibold">
               Bulk labels: code, name, species, morph
               <textarea
@@ -192,11 +202,11 @@ export default function QrPrintPanel() {
             </p>
           )}
 
-          <div id="qr-print-area" className="mx-auto grid max-w-5xl gap-3" style={printStyle}>
+          <div id="qr-print-area" className={`mx-auto grid max-w-5xl gap-3 ${size.niimbot ? "niimbot-print-area" : ""}`} style={printStyle}>
             {labels.map((label, index) => (
               <div
                 key={`${label.code}-${index}`}
-                className="qr-label flex items-center gap-2 rounded border-2 border-slate-950 bg-white p-2"
+                className={`qr-label flex items-center gap-2 rounded border-2 border-slate-950 bg-white p-2 ${size.niimbot ? "niimbot-label" : ""}`}
                 style={{ width: size.width, height: size.height }}
               >
                 <img src={label.img} alt={label.code} className={`${size.qrClass} shrink-0 bg-white`} style={{ imageRendering: "pixelated" }} />
