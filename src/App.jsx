@@ -62,6 +62,23 @@ function makeAnimalId(nextId) {
   return `A-${String(nextId).padStart(3, "0")}`;
 }
 
+function getNextUnusedAnimalNumber(animals) {
+  const usedNumbers = new Set(
+    animals
+      .map((animal) => String(animal.id || ""))
+      .filter((id) => /^A-\d+$/.test(id))
+      .map((id) => Number(id.replace("A-", "")))
+      .filter((number) => Number.isFinite(number))
+  );
+
+  let nextNumber = 1;
+  while (usedNumbers.has(nextNumber)) {
+    nextNumber += 1;
+  }
+
+  return nextNumber;
+}
+
 function makeEggId(nextId) {
   return `E-${String(nextId).padStart(3, "0")}`;
 }
