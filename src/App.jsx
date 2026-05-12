@@ -907,13 +907,17 @@ useEffect(() => {
   }
 
   function addAnimal() {
-    const nextNumber = animals.filter((animal) => animal.id.startsWith("A-")).length + 1;
+  setAnimals((prev) => {
+    const nextNumber = getNextUnusedAnimalNumber(prev);
     const newAnimal = { ...blankAnimal(nextNumber) };
     newAnimal._lastSaved = getProfileSnapshot(newAnimal);
-    setAnimals((prev) => [newAnimal, ...prev]);
+
     setSelectedId(newAnimal.id);
     setActiveTab("profile");
-  }
+
+    return [newAnimal, ...prev];
+  });
+}
   
   function requestDeleteSelectedAnimal() {
   if (!selected || animals.length <= 1) return;
