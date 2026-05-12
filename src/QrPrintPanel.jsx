@@ -36,6 +36,21 @@ function parseBulkText(text) {
     .filter((item) => item.code);
 }
 
+function getCurrentAppQrItems() {
+  if (typeof window === "undefined") return [];
+  const items = window.__REPTILE_NOTES_QR_ITEMS__;
+  if (!Array.isArray(items)) return [];
+  return items
+    .map((item) => ({
+      code: normalizeQrCode(item.code || item.qrCode || item.id || ""),
+      name: item.name || "",
+      species: item.species || item.type || item.stage || "",
+      morph: item.morph || item.note || item.notes || "",
+      notes: item.notes || item.note || "",
+    }))
+    .filter((item) => item.code);
+}
+
 export default function QrPrintPanel() {
   const [open, setOpen] = useState(false);
   const [prefix, setPrefix] = useState("QR-A");
@@ -49,9 +64,16 @@ export default function QrPrintPanel() {
   const size = LABEL_SIZES[labelSize];
 
   async function makeLabels(items) {
+    const cleanItems = (items || []).filter((item) => item?.code);
+    if (cleanItems.length === 0) {
+      setLabels([]);
+      setMessage("No QR items found. Open the app data first or enter bulk labels manually.");
+      return;
+    }
+
     setMessage("Generating real QR codes...");
     const withImages = await Promise.all(
-      items.map(async (item) => {
+      cleanItems.map(async (item) => {
         const code = normalizeQrCode(item.code);
         return {
           ...item,
@@ -70,6 +92,10 @@ export default function QrPrintPanel() {
 
   function generateFromBulk() {
     makeLabels(parseBulkText(bulkText));
+  }
+
+  function generateCurrentAppItems() {
+    makeLabels(getCurrentAppQrItems());
   }
 
   function updateLabel(index, field, value) {
@@ -184,6 +210,9 @@ export default function QrPrintPanel() {
               <button type="button" onClick={generateFromBulk} className="rounded-xl bg-slate-900 px-4 py-2 font-bold text-white">
                 Generate From Bulk
               </button>
+              <button type="button" onClick={generateCurrentAppItems} className="rounded-xl bg-emerald-700 px-4 py-2 font-bold text-white">
+                Generate Current Animals & Locations
+              </button>
               <button
                 type="button"
                 onClick={() => window.print()}
@@ -198,7 +227,7 @@ export default function QrPrintPanel() {
 
           {labels.length === 0 && (
             <p className="mx-auto max-w-5xl rounded-2xl bg-slate-100 p-4 text-sm text-slate-600 print:hidden">
-              Click Generate Range or Generate From Bulk to create printable QR labels.
+              Click Generate Range, Generate From Bulk, or Generate Current Animals & Locations to create printable QR labels.
             </p>
           )}
 
