@@ -1555,7 +1555,17 @@ function deleteSelectedAnimal() {
                     }
                   />
                 </Field>
-                <Field label="Humidity"><Input value={selected.housing?.humidity || ""} onChange={(event) => updateSelected("housing.humidity", event.target.value)} /></Field><Field label="Last cleaned"><Input type="date" value={selected.housing?.lastCleaned?.date || ""} onChange={(event) => updateSelected("housing.lastCleaned.date", event.target.value)} /></Field><Field label="Clean type"><Select value={selected.housing?.lastCleaned?.type || "Partial clean"} onChange={(event) => updateSelected("housing.lastCleaned.type", event.target.value)}>{CLEAN_OPTIONS.map((option) => <option key={option}>{option}</option>)}</Select></Field><Field label="Cleaning note"><Textarea value={selected.housing?.lastCleaned?.note || ""} onChange={(event) => updateSelected("housing.lastCleaned.note", event.target.value)} /></Field><div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-end"><Button variant="outline" 
+         <Field label="Humidity">
+          <Input
+            value={selected.housing?.humidity || ""}
+            placeholder="Example: 65%"
+            onChange={(event) => updateSelected("housing.humidity", event.target.value)}
+            onBlur={(event) =>
+              updateSelected("housing.humidity", formatHumidity(event.target.value))
+            }    
+          />
+        </Field>
+                <Field label="Last cleaned"><Input type="date" value={selected.housing?.lastCleaned?.date || ""} onChange={(event) => updateSelected("housing.lastCleaned.date", event.target.value)} /></Field><Field label="Clean type"><Select value={selected.housing?.lastCleaned?.type || "Partial clean"} onChange={(event) => updateSelected("housing.lastCleaned.type", event.target.value)}>{CLEAN_OPTIONS.map((option) => <option key={option}>{option}</option>)}</Select></Field><Field label="Cleaning note"><Textarea value={selected.housing?.lastCleaned?.note || ""} onChange={(event) => updateSelected("housing.lastCleaned.note", event.target.value)} /></Field><div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-end"><Button variant="outline" 
                 onClick={() => {
                   const location = housingLocations.find(
                     (item) => item.id === selected.housing?.locationId
