@@ -594,7 +594,14 @@ function blankAnimal(nextId) {
     eggsLaid: "0",
     pricing: createPricing("", "", ""),
     pedigree: createPedigreeNode("New Animal"),
-    housing: { locationId: "", enclosure: "", temperature: "", humidity: "", lastCleaned: { date: "", type: "Partial clean", note: "" }, bedding: "Aspen" },
+    housing: {
+      locationId: "",
+      enclosure: "",
+      temperature: "°F",
+      humidity: "%",
+      lastCleaned: { date: "", type: "Partial clean", note: "" },
+      bedding: "Aspen",
+    },  
     logs: [],
     photos: [],
   };
