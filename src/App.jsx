@@ -91,6 +91,23 @@ function makeLocationId(nextId) {
   return `H-${String(nextId).padStart(3, "0")}`;
 }
 
+function getNextUnusedLocationNumber(locations) {
+  const usedNumbers = new Set(
+    locations
+      .map((location) => String(location.id || ""))
+      .filter((id) => /^H-\d+$/.test(id))
+      .map((id) => Number(id.replace("H-", "")))
+      .filter((number) => Number.isFinite(number))
+  );
+
+  let nextNumber = 1;
+  while (usedNumbers.has(nextNumber)) {
+    nextNumber += 1;
+  }
+
+  return nextNumber;
+}
+
 function makeLocationQrCode(id) {
   return `QR-${id}`;
 }
