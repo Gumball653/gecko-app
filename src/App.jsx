@@ -112,6 +112,24 @@ function makeLocationQrCode(id) {
   return `QR-${id}`;
 }
 
+function formatTemperature(value) {
+  const raw = String(value || "").trim();
+  if (!raw) return "";
+
+  if (/[°fFcC]/.test(raw)) return raw;
+
+  return `${raw}°F`;
+}
+
+function formatHumidity(value) {
+  const raw = String(value || "").trim();
+  if (!raw) return "";
+
+  if (raw.includes("%")) return raw;
+
+  return `${raw}%`;
+}
+
 function createStatus(status = "Active", reason = "", date = "", note = "") {
   return { status, reason, date, note };
 }
