@@ -866,13 +866,24 @@ useEffect(() => {
   }
 
   function addHousingLocation() {
-    if (!locationDraft.name.trim()) return;
-    const id = makeLocationId(housingLocations.length + 1);
-    const location = createHousingLocation(id, locationDraft.name.trim(), locationDraft.type || "Enclosure", locationDraft.note);
-    setHousingLocations((prev) => [location, ...prev]);
+  if (!locationDraft.name.trim()) return;
+
+  setHousingLocations((prev) => {
+    const nextNumber = getNextUnusedLocationNumber(prev);
+    const id = makeLocationId(nextNumber);
+    const location = createHousingLocation(
+      id,
+      locationDraft.name.trim(),
+      locationDraft.type || "Enclosure",
+      locationDraft.note
+    );
+
     setSelectedLocationId(id);
-    setLocationDraft({ name: "", type: "Enclosure", note: "" });
-  }
+    return [location, ...prev];
+  });
+
+  setLocationDraft({ name: "", type: "Enclosure", note: "" });
+}
 
   function updateHousingLocation(locationId, path, value) {
     setHousingLocations((prev) => prev.map((location) => location.id === locationId ? { ...location, [path]: value } : location));
