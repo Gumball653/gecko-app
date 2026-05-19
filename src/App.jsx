@@ -52,6 +52,13 @@ function formatDate(date) {
   return date.toISOString().slice(0, 10);
 }
 
+function formatDateTime(date) {
+  return `${date.toISOString().slice(0, 10)} ${date.toLocaleTimeString([], {
+    hour: "numeric",
+    minute: "2-digit",
+  })}`;
+}
+
 function addDays(date, days) {
   const copy = new Date(date);
   copy.setDate(copy.getDate() + days);
