@@ -823,6 +823,36 @@ useEffect(() => {
     setAnimals((prev) => prev.map((animal) => animal.id === selected.id ? { ...animal, logs: [{ type, date: today, summary }, ...(animal.logs || [])] } : animal));
   }
 
+function markSelectedAnimalSprayed() {
+  if (!selected) return;
+
+  const now = new Date();
+  const today = formatDate(now);
+  const sprayedAt = formatDateTime(now);
+  const summary = `Sprayed/misted housing at ${sprayedAt}. Temp: ${
+    selected.housing?.temperature || "-"
+  }, Humidity: ${selected.housing?.humidity || "-"}`;
+
+  setAnimals((prev) =>
+    prev.map((animal) =>
+      animal.id === selected.id
+        ? {
+            ...animal,
+            housing: {
+              ...(animal.housing || {}),
+              lastSprayed: sprayedAt,
+            },
+            logs: [{ type: "spraying", date: today, summary }, ...(animal.logs || [])],
+          }
+        : animal
+    )
+  );
+
+  if (selected.housing?.locationId) {
+    addHousingLocationLog(selected.housing.locationId, "spraying", summary);
+  }
+}
+  
   function selectFoodAndLog(food) {
     if (!food) {
       updateSelected("lastFeeding.food", EMPTY_FOOD_VALUE);
