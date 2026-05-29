@@ -1488,10 +1488,6 @@ function deleteSelectedAnimal() {
                           <Icon name="save" className="mr-2 h-4 w-4" /> Save individual feeding/profile log
                         </Button>
                       </div>
-                  </CardContent>
-                </Card>
-              </section>
-            )}
 
             {activeTab === "locations" && (
               <section className="grid gap-4 xl:grid-cols-[1fr_380px]">
