@@ -872,11 +872,6 @@ function markSelectedAnimalSprayed() {
     addHousingLocationLog(locationId, "spraying", summary);
   }
 }
-
-  if (selected.housing?.locationId) {
-    addHousingLocationLog(selected.housing.locationId, "spraying", summary);
-  }
-}
   
   function selectFoodAndLog(food) {
     if (!food) {
