@@ -1484,10 +1484,32 @@ function deleteSelectedAnimal() {
                           <Icon name="home" className="mr-2 h-4 w-4" /> Feed whole housing
                         </Button>
 
-                        <Button onClick={saveProfileLog} className="rounded-xl">
-                          <Icon name="save" className="mr-2 h-4 w-4" /> Save individual feeding/profile log
+                        <div className="md:col-span-2 flex flex-col gap-2 sm:flex-row sm:justify-end">
+                        <Button
+                          type="button"
+                          variant="outline"
+                          onClick={feedHousingAnimals}
+                          className="rounded-xl"
+                        disabled={
+                          !selected.lastFeeding?.food ||
+                          selected.lastFeeding.food === EMPTY_FOOD_VALUE
+                        }
+                        >
+                      <Icon name="home" className="mr-2 h-4 w-4" /> Feed whole housing
+                        </Button>
+
+                        <Button
+                          type="button"
+                            onClick={saveProfileLog}
+                            className="rounded-xl"
+                        >
+                      <Icon name="save" className="mr-2 h-4 w-4" /> Save individual feeding/profile log
                         </Button>
                       </div>
+                    </CardContent>
+                  </Card>
+                </section>
+              )}
 
             {activeTab === "locations" && (
               <section className="grid gap-4 xl:grid-cols-[1fr_380px]">
