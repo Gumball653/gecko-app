@@ -888,6 +888,77 @@ function markSelectedAnimalSprayed() {
     }));
   }
 
+  function feedHousingAnimals() {
+  if (!selected) return;
+
+  const food = selected.lastFeeding?.food || "";
+  const note = selected.lastFeeding?.note || "";
+  const locationId = selected.housing?.locationId || "";
+
+  if (!food || food === EMPTY_FOOD_VALUE) {
+    setScanMessage("Select a food first before feeding the whole housing.");
+    return;
+  }
+
+  const now = new Date();
+  const today = formatDate(now);
+  const fedAt = formatDateTime(now);
+
+  const location = housingLocations.find((item) => item.id === locationId);
+  const locationName =
+    location?.name || selected.housing?.enclosure || "Unassigned housing";
+
+  const animalsInSameHousing = locationId
+    ? animals.filter((animal) => animal.housing?.locationId === locationId)
+    : [selected];
+
+  const targetAnimals =
+    animalsInSameHousing.length > 0 ? animalsInSameHousing : [selected];
+
+  const targetIds = targetAnimals.map((animal) => animal.id);
+  const targetNames = targetAnimals
+    .map((animal) => animal.name || animal.id)
+    .join(", ");
+
+  const summary =
+    "Fed " +
+    locationName +
+    " at " +
+    fedAt +
+    ". Animals: " +
+    targetNames +
+    ". Food: " +
+    food +
+    ". Note: " +
+    (note || "-");
+
+  setAnimals((prev) =>
+    prev.map((animal) =>
+      targetIds.includes(animal.id)
+        ? sanitizeReproductiveFields({
+            ...animal,
+            lastFeeding: {
+              ...(animal.lastFeeding || {}),
+              date: today,
+              food,
+              note,
+            },
+            logs: [
+              { type: "feeding", date: today, summary },
+              ...(animal.logs || []),
+            ],
+          })
+        : animal
+    )
+  );
+
+  if (locationId) {
+    addHousingLocationLog(locationId, "feeding", summary);
+  }
+
+  setScanMessage("Fed all animals assigned to this housing.");
+}
+
   function saveProfileLog() {
     setAnimals((prev) => prev.map((animal) => {
       if (animal.id !== selected.id) return animal;
