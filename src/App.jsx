@@ -829,13 +829,33 @@ function markSelectedAnimalSprayed() {
   const now = new Date();
   const today = formatDate(now);
   const sprayedAt = formatDateTime(now);
-  const summary = `Sprayed/misted housing at ${sprayedAt}. Temp: ${
+  const locationId = selected.housing?.locationId || "";
+  const locationName =
+    housingLocations.find((location) => location.id === locationId)?.name ||
+    selected.housing?.enclosure ||
+    "Unassigned housing";
+
+  const animalsInSameHousing = locationId
+    ? animals.filter((animal) => animal.housing?.locationId === locationId)
+    : [selected];
+
+  const affectedIds = new Set(
+    animalsInSameHousing.length > 0
+      ? animalsInSameHousing.map((animal) => animal.id)
+      : [selected.id]
+  );
+
+  const affectedNames = animalsInSameHousing.length > 0
+    ? animalsInSameHousing.map((animal) => animal.name || animal.id).join(", ")
+    : selected.name || selected.id;
+
+  const summary = `Sprayed/misted ${locationName} at ${sprayedAt}. Animals: ${affectedNames}. Temp: ${
     selected.housing?.temperature || "-"
   }, Humidity: ${selected.housing?.humidity || "-"}`;
 
   setAnimals((prev) =>
     prev.map((animal) =>
-      animal.id === selected.id
+      affectedIds.has(animal.id)
         ? {
             ...animal,
             housing: {
@@ -847,6 +867,11 @@ function markSelectedAnimalSprayed() {
         : animal
     )
   );
+
+  if (locationId) {
+    addHousingLocationLog(locationId, "spraying", summary);
+  }
+}
 
   if (selected.housing?.locationId) {
     addHousingLocationLog(selected.housing.locationId, "spraying", summary);
