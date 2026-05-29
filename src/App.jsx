@@ -1610,7 +1610,11 @@ function deleteSelectedAnimal() {
                 <div className="grid gap-3 md:grid-cols-4">
                   <StatCard icon="temp" label="Temperature" value={selected.housing?.temperature} />
                   <StatCard icon="drop" label="Humidity" value={selected.housing?.humidity} />
-                  <StatCard icon="drop" label="Last sprayed" value={selected.housing?.lastSprayed || "-"} />
+                  <StatCard
+                    icon="drop"
+                    label="Last sprayed for this housing"
+                    value={selected.housing?.lastSprayed || "-"}
+                  />
                   <StatCard icon="home" label="Last cleaned" value={`${selected.housing?.lastCleaned?.date || "-"} - ${selected.housing?.lastCleaned?.type || ""}`} />
                   <StatCard icon="qr" label="Housing QR" value={selectedAnimalLocation?.qrCode || "No location"} />
                 </div>
