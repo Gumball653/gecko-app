@@ -1467,6 +1467,7 @@ function deleteSelectedAnimal() {
               <section className="space-y-4">
                 <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
                   <StatCard icon="clipboard" label="Last feeding" value={`${selected.lastFeeding?.date || "-"} ${selected.lastFeeding?.food || ""}`} />
+                  <StatCard icon="baby" label="Age" value={getAnimalAge(selected)} />
                   <StatCard icon="paw" label="Weight" value={selected.weight} />
                   <StatCard icon="length" label="Length" value={selected.length} />
                   <StatCard icon="egg" label="Gravid / eggs" value={`${selected.gravid ? "Gravid" : "Not gravid"} - ${selected.eggsLaid || 0}`} />
