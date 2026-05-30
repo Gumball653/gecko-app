@@ -1528,7 +1528,8 @@ function deleteSelectedAnimal() {
                 onClick={() => {
                   setSelectedLocationId(location.id);
                   setOpenedLocationProfileId(location.id);
-                  setActiveTab("locations");
+                  setSidebarView("locations");
+                  setActiveTab("housingProfile");
                 }}
                 className={`w-full rounded-2xl border p-3 text-left transition ${
                   selectedLocationId === location.id
