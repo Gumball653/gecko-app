@@ -752,6 +752,7 @@ export default function AnimalQrTrackingApp() {
   const [housingLocations, setHousingLocations] = useState(() => savedState?.housingLocations || initialHousingLocations);
   const [selectedId, setSelectedId] = useState("A-001");
   const [query, setQuery] = useState("");
+  const [sidebarView, setSidebarView] = useState("animals");
   const [activeTab, setActiveTab] = useState("profile");
   const [showPedigree, setShowPedigree] = useState(false);
   const [showQr, setShowQr] = useState(false);
