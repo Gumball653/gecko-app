@@ -1805,28 +1805,35 @@ function deleteSelectedAnimal() {
                     <Icon name="drop" className="mr-2 h-4 w-4" /> Sprayed today
                   </Button>
                  <Button
-                  type="button"
-                  onClick={() => {
-                    const cleanSummary = `${
-                    selected.housing?.lastCleaned?.type || "Clean type not selected"
-                  } - ${selected.housing?.lastCleaned?.note || "housing cleaned"}`;
+  type="button"
+  onClick={() => {
+    const cleanType = selected.housing?.lastCleaned?.type || "";
 
-                  addLog("cleaning", cleanSummary);
+    if (!cleanType) {
+      setScanMessage("Select a clean type before saving a cleaning log.");
+      return;
+    }
 
-                  if (selected.housing?.locationId) {
-                    addHousingLocationLog(
-                    selected.housing.locationId,
-                    "cleaning",
-                    cleanSummary
-                  );
-                }
+    const cleanSummary = `${cleanType} - ${
+      selected.housing?.lastCleaned?.note || "housing cleaned"
+    }`;
 
-                updateSelected("housing.lastCleaned.type", "");
-              }}
-              className="rounded-xl"
-            >
-              <Icon name="save" className="mr-2 h-4 w-4" /> Save housing log
-            </Button>
+    addLog("cleaning", cleanSummary);
+
+    if (selected.housing?.locationId) {
+      addHousingLocationLog(
+        selected.housing.locationId,
+        "cleaning",
+        cleanSummary
+      );
+    }
+
+    updateSelected("housing.lastCleaned.type", "");
+  }}
+  className="rounded-xl"
+>
+  <Icon name="save" className="mr-2 h-4 w-4" /> Save housing log
+</Button>
           </div>
           </CardContent>
           </Card>
