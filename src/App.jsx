@@ -1473,6 +1473,29 @@ function deleteSelectedAnimal() {
                         <Field label="Sale price"><Input inputMode="decimal" value={selected.pricing?.salePrice || ""} onChange={(event) => updateSelected("pricing.salePrice", event.target.value)} /></Field>
                       </div>
                     </div>
+                    
+                    <div className="md:col-span-2 flex flex-col gap-2 sm:flex-row sm:justify-end">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        onClick={feedHousingAnimals}
+                        className="rounded-xl"
+                        disabled={
+                          !selected.lastFeeding?.food ||
+                          selected.lastFeeding.food === EMPTY_FOOD_VALUE
+                        }
+                      >
+                        <Icon name="home" className="mr-2 h-4 w-4" /> Feed whole housing
+                      </Button>
+
+                      <Button
+                        type="button"
+                        onClick={saveProfileLog}
+                        className="rounded-xl"
+                      >
+                        <Icon name="save" className="mr-2 h-4 w-4" /> Save profile log
+                      </Button>
+                    </div>
                     </CardContent>
                   </Card>
                 </section>
