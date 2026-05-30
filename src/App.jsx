@@ -1804,8 +1804,34 @@ function deleteSelectedAnimal() {
                   >
                     <Icon name="drop" className="mr-2 h-4 w-4" /> Sprayed today
                   </Button>
-                  <Button onClick={() => { addLog("cleaning", `${selected.housing?.lastCleaned?.type || "Clean"} - ${selected.housing?.lastCleaned?.note || "housing cleaned"}`); if (selected.housing?.locationId) addHousingLocationLog(selected.housing.locationId, "cleaning", `${selected.housing?.lastCleaned?.type || "Clean"} - ${selected.housing?.lastCleaned?.note || "housing cleaned"}`); }} className="rounded-xl"><Icon name="save" className="mr-2 h-4 w-4" /> Save housing log</Button></div></CardContent></Card></section>
-            )}
+                 <Button
+                  type="button"
+                  onClick={() => {
+                    const cleanSummary = `${
+                    selected.housing?.lastCleaned?.type || "Clean type not selected"
+                  } - ${selected.housing?.lastCleaned?.note || "housing cleaned"}`;
+
+                  addLog("cleaning", cleanSummary);
+
+                  if (selected.housing?.locationId) {
+                    addHousingLocationLog(
+                    selected.housing.locationId,
+                    "cleaning",
+                    cleanSummary
+                  );
+                }
+
+                updateSelected("housing.lastCleaned.type", "");
+              }}
+              className="rounded-xl"
+            >
+              <Icon name="save" className="mr-2 h-4 w-4" /> Save housing log
+            </Button>
+          </div>
+          </CardContent>
+          </Card>
+        </section>
+      )}
 
             {activeTab === "breeding" && (
               <section className="grid gap-4 xl:grid-cols-[1fr_380px]"><Card className="rounded-3xl border-slate-200 shadow-sm"><CardContent className="space-y-4 p-5"><h3 className="flex items-center gap-2 text-xl font-bold"><Icon name="heart" /> Breeding groups</h3>{breedingGroups.map((group) => <div key={group.id} className="rounded-2xl border border-slate-200 bg-white p-4"><div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between"><div><h4 className="font-bold">{group.name}</h4><p className="text-sm text-slate-500">{group.id} - active animals only for egg creation</p><div className="mt-3 flex flex-wrap gap-2">{group.animalIds.map((id) => <span key={id} className={`rounded-full px-3 py-1 text-sm ${isActiveProfile(animalMap[id]) ? "bg-slate-100" : "bg-slate-200 text-slate-500"}`}>{animalMap[id]?.name || id}{!isActiveProfile(animalMap[id]) ? " - inactive" : ""}</span>)}</div><p className="mt-3 text-sm text-slate-600">{group.notes || "No notes"}</p></div><div className="flex flex-col gap-2 text-left sm:text-right"><Button onClick={() => createEggProfile(group)} className="w-full rounded-xl sm:w-auto" disabled={!canCreateEggFromGroup(group, animalMap)}><Icon name="egg" className="mr-2 h-4 w-4" /> Eggs found</Button><Button variant="outline" onClick={() => deleteBreedingGroup(group.id)} className="w-full rounded-xl sm:w-auto"><Icon name="close" className="mr-2 h-4 w-4" /> Delete group</Button>{!canCreateEggFromGroup(group, animalMap) && <p className="max-w-full text-xs text-slate-500 sm:max-w-56">Egg profiles require at least one active female dam and one active male sire in the group.</p>}</div></div></div>)}</CardContent></Card><Card className="rounded-3xl border-slate-200 shadow-sm"><CardContent className="space-y-4 p-5"><h3 className="font-bold">Create breeding group</h3><Field label="Group name"><Input value={groupDraft.name} onChange={(event) => setGroupDraft({ ...groupDraft, name: event.target.value })} /></Field><div className="space-y-2"><p className="text-sm font-medium text-slate-700">Select 2 to 4 active animals</p>{activeAnimals.map((animal) => <button key={animal.id} onClick={() => toggleGroupAnimal(animal.id)} className={`flex w-full items-center justify-between rounded-xl border p-2 text-left text-sm ${groupDraft.animalIds.includes(animal.id) ? "border-slate-900 bg-slate-100" : "border-slate-200 bg-white"}`}><span>{animal.name} - {animal.sex}</span><span>{groupDraft.animalIds.includes(animal.id) ? "Selected" : "Add"}</span></button>)}</div><Field label="Pairing notes"><Textarea value={groupDraft.notes} onChange={(event) => setGroupDraft({ ...groupDraft, notes: event.target.value })} /></Field><Button onClick={createBreedingGroup} className="w-full rounded-xl py-5 sm:py-2" disabled={groupDraft.animalIds.length < 2}>Create group</Button></CardContent></Card></section>
