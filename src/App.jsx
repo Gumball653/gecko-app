@@ -1037,9 +1037,14 @@ function markSelectedAnimalSprayed() {
     const locationMatch = housingLocations.find((location) => location.qrCode.toLowerCase() === normalized || location.id.toLowerCase() === normalized);
     if (locationMatch) {
       setSelectedLocationId(locationMatch.id);
+      setOpenedLocationProfileId(locationMatch.id);
       setActiveTab("locations");
-      setScanMessage(`Opened housing location ${locationMatch.name}.`);
-      addHousingLocationLog(locationMatch.id, "scan", `QR scanned for ${locationMatch.name}`);
+      setScanMessage(`Opened housing profile: ${locationMatch.name}.`);
+      addHousingLocationLog(
+        locationMatch.id,
+        "scan",
+        `QR scanned and opened housing profile for ${locationMatch.name}`
+      );
       return true;
     }
     setScanMessage("No animal, egg, or housing location matched that QR code.");
