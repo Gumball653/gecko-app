@@ -8,7 +8,7 @@ import QrScanner from "./QrScanner";
 
 const FOOD_OPTIONS = ["Rodent", "Insect", "Fish", "Greens", "Fruit", "Prepared diet", "Other"];
 const EMPTY_FOOD_VALUE = "";
-const CLEAN_OPTIONS = ["Full clean", "Partial clean"];
+const CLEAN_OPTIONS = ["", "Full clean", "Partial clean"];
 const BEDDING_OPTIONS = ["Aspen", "Cypress mulch", "Coconut fiber", "Paper towel", "Bioactive", "Other"];
 const SEX_OPTIONS = ["Unknown", "Male", "Female"];
 const EXCREMENT_OPTIONS = ["None observed", "Normal", "Loose", "Urates only", "Abnormal", "Other"];
