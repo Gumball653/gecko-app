@@ -1480,7 +1480,13 @@ function deleteSelectedAnimal() {
                     <Field label="Name"><Input value={selected.name} onChange={(event) => updateSelected("name", event.target.value)} /></Field>
                     <Field label="Species"><Input value={selected.species} onChange={(event) => updateSelected("species", event.target.value)} /></Field>
                     <Field label="Morph"><Input value={selected.morph || ""} onChange={(event) => updateSelected("morph", event.target.value)} placeholder="Example: Pastel, Clown, Pied, Normal" /></Field>
-                    <Field label="Age"><Input value={selected.age} onChange={(event) => updateSelected("age", event.target.value)} /></Field>
+                    <Field label="Age">
+                      <Input
+                        value={getAnimalAge(selected)}
+                        readOnly
+                        placeholder="Auto-filled from hatch/birth date"
+                      />
+                    </Field>
                     <Field label="Birth date / hatch date"><Input type="date" value={selected.birthDate || selected.hatchDate || ""} onChange={(event) => updateSelectedMany([{ path: "birthDate", value: event.target.value }, { path: "hatchDate", value: event.target.value }])} /></Field>
                     <Field label="Sex"><Select value={selected.sex} onChange={(event) => updateSelected("sex", event.target.value)}>{SEX_OPTIONS.map((option) => <option key={option}>{option}</option>)}</Select></Field>
                     <Field label="Weight"><Input value={selected.weight} onChange={(event) => updateSelected("weight", event.target.value)} /></Field>
