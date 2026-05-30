@@ -1562,13 +1562,43 @@ function deleteSelectedAnimal() {
                 <CardContent className="p-4 sm:p-5">
                   <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
                     <div className="flex items-center gap-3">
-                      <div className="rounded-2xl bg-slate-100 p-3"><Icon name={selected.stage === "egg" ? "egg" : "paw"} className="h-6 w-6" /></div>
-                      <div>
-                        <h2 className="text-xl font-bold leading-tight sm:text-2xl">{selected.name}</h2>
-                        <p className="text-sm text-slate-500">{selected.id} - {selected.qrCode} - {selected.species || "Species not set"}</p>
-                        {!isActiveProfile(selected) && <p className="mt-1 w-fit rounded-full bg-slate-200 px-3 py-1 text-xs font-semibold text-slate-700">Inactive: {selected.statusInfo?.reason || "Archived"} {selected.statusInfo?.date ? `on ${selected.statusInfo.date}` : ""}</p>}
-                      </div>
-                    </div>
+  <div className="rounded-2xl bg-slate-100 p-3">
+    <Icon
+      name={activeTab === "housingProfile" ? "home" : selected.stage === "egg" ? "egg" : "paw"}
+      className="h-6 w-6"
+    />
+  </div>
+
+  <div>
+    {activeTab === "housingProfile" && selectedLocation ? (
+      <>
+        <h2 className="text-xl font-bold leading-tight sm:text-2xl">
+          {selectedLocation.name}
+        </h2>
+        <p className="text-sm text-slate-500">
+          {selectedLocation.id} - {selectedLocation.qrCode} -{" "}
+          {selectedLocation.type || "Housing location"}
+        </p>
+      </>
+    ) : (
+      <>
+        <h2 className="text-xl font-bold leading-tight sm:text-2xl">
+          {selected.name}
+        </h2>
+        <p className="text-sm text-slate-500">
+          {selected.id} - {selected.qrCode} -{" "}
+          {selected.species || "Species not set"}
+        </p>
+        {!isActiveProfile(selected) && (
+          <p className="mt-1 w-fit rounded-full bg-slate-200 px-3 py-1 text-xs font-semibold text-slate-700">
+            Inactive: {selected.statusInfo?.reason || "Archived"}{" "}
+            {selected.statusInfo?.date ? `on ${selected.statusInfo.date}` : ""}
+          </p>
+        )}
+      </>
+    )}
+  </div>
+</div>
                     <div className="flex gap-2 overflow-x-auto pb-1 md:flex-wrap md:overflow-visible">
                       {["profile", "housing", "photos", "breeding", "logs", selected.stage === "egg" ? "egg" : null].filter(Boolean).map((tab) => <Button key={tab} variant={activeTab === tab ? "default" : "outline"} onClick={() => setActiveTab(tab)} className="shrink-0 rounded-xl capitalize">{tab}</Button>)}
                      <Button variant="outline" onClick={() => setRealQrProfile(selected)} className="rounded-xl">
