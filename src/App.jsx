@@ -1040,15 +1040,15 @@ function markSelectedAnimalSprayed() {
       setSelectedLocationId(locationMatch.id);
       setOpenedLocationProfileId(locationMatch.id);
       setSidebarView("locations");
-      setActiveTab("locations");
+      setActiveTab("housingProfile");
       setScanMessage(`Opened housing profile: ${locationMatch.name}.`);
       addHousingLocationLog(
         locationMatch.id,
         "scan",
-        `QR scanned and opened housing profile for ${locationMatch.name}`
-      );
-      return true;
-    }
+      `QR scanned and opened housing profile for ${locationMatch.name}`
+    );
+  return true;
+}
     setScanMessage("No animal, egg, or housing location matched that QR code.");
     return false;
   }
