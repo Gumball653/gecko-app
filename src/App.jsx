@@ -1420,22 +1420,143 @@ function deleteSelectedAnimal() {
               <CardContent className="space-y-3 p-3 sm:p-4">
                 <div className="flex items-center justify-between gap-2">
                   <div className="flex items-center gap-2 font-semibold"><Icon name="search" /> Animals & eggs</div>
-                  <Button onClick={addAnimal} size="sm" className="rounded-xl"><Icon name="plus" className="mr-1 h-4 w-4" /> Add</Button>
+                 <Card className="rounded-3xl border-slate-200 shadow-sm">
+  <CardContent className="space-y-3 p-3 sm:p-4">
+    <div className="flex items-center justify-between gap-2">
+      <div className="flex items-center gap-2 font-semibold">
+        <Icon name={sidebarView === "locations" ? "home" : "search"} />
+        {sidebarView === "locations" ? "Locations" : "Animals & eggs"}
+      </div>
+
+      {sidebarView === "animals" ? (
+        <Button onClick={addAnimal} size="sm" className="rounded-xl">
+          <Icon name="plus" className="mr-1 h-4 w-4" /> Add
+        </Button>
+      ) : (
+        <Button
+          onClick={() => setActiveTab("locations")}
+          size="sm"
+          className="rounded-xl"
+        >
+          Open
+        </Button>
+      )}
+    </div>
+
+    <Select
+      value={sidebarView}
+      onChange={(event) => {
+        const nextView = event.target.value;
+        setSidebarView(nextView);
+        if (nextView === "locations") {
+          setActiveTab("locations");
+        } else {
+          setActiveTab(selected?.stage === "egg" ? "egg" : "profile");
+        }
+      }}
+    >
+      <option value="animals">Animals & eggs</option>
+      <option value="locations">Locations</option>
+    </Select>
+
+    <Input
+      value={query}
+      onChange={(event) => setQuery(event.target.value)}
+      placeholder={
+        sidebarView === "locations"
+          ? "Search locations, QR, type..."
+          : "Search name, ID, status..."
+      }
+    />
+
+    {sidebarView === "animals" ? (
+      <div className="max-h-[45vh] space-y-2 overflow-auto pr-1 lg:max-h-[560px]">
+        {filteredAnimals.map((animal) => (
+          <button
+            key={animal.id}
+            onClick={() => {
+              setSelectedId(animal.id);
+              setActiveTab(animal.stage === "egg" ? "egg" : "profile");
+            }}
+            className={`w-full rounded-2xl border p-3 text-left transition ${
+              selectedId === animal.id
+                ? "border-slate-900 bg-white shadow-sm"
+                : "border-slate-200 bg-white/70 hover:bg-white"
+            }`}
+          >
+            <div className="flex items-center justify-between gap-2">
+              <div className="font-semibold">{animal.name}</div>
+              <span
+                className={`rounded-full px-2 py-1 text-xs ${
+                  !isActiveProfile(animal)
+                    ? "bg-slate-200 text-slate-700"
+                    : animal.stage === "egg"
+                      ? "bg-amber-100 text-amber-800"
+                      : "bg-emerald-100 text-emerald-800"
+                }`}
+              >
+                {!isActiveProfile(animal)
+                  ? `inactive - ${animal.statusInfo?.reason || "archived"}`
+                  : animal.stage}
+              </span>
+            </div>
+            <div className="mt-1 text-xs text-slate-500">
+              {animal.id} - {animal.qrCode} - {animal.species || "No species"}
+            </div>
+          </button>
+        ))}
+      </div>
+    ) : (
+      <div className="max-h-[45vh] space-y-2 overflow-auto pr-1 lg:max-h-[560px]">
+        {housingLocations
+          .filter((location) =>
+            [
+              location.name,
+              location.id,
+              location.qrCode,
+              location.type,
+              location.note,
+            ]
+              .join(" ")
+              .toLowerCase()
+              .includes(query.toLowerCase())
+          )
+          .map((location) => {
+            const assignedAnimals = animals.filter(
+              (animal) => animal.housing?.locationId === location.id
+            );
+
+            return (
+              <button
+                key={location.id}
+                onClick={() => {
+                  setSelectedLocationId(location.id);
+                  setOpenedLocationProfileId(location.id);
+                  setActiveTab("locations");
+                }}
+                className={`w-full rounded-2xl border p-3 text-left transition ${
+                  selectedLocationId === location.id
+                    ? "border-slate-900 bg-white shadow-sm"
+                    : "border-slate-200 bg-white/70 hover:bg-white"
+                }`}
+              >
+                <div className="flex items-center justify-between gap-2">
+                  <div className="font-semibold">{location.name}</div>
+                  <span className="rounded-full bg-slate-100 px-2 py-1 text-xs">
+                    {assignedAnimals.length} animal
+                    {assignedAnimals.length === 1 ? "" : "s"}
+                  </span>
                 </div>
-                <Input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search name, ID, status..." />
-                <div className="max-h-[45vh] space-y-2 overflow-auto pr-1 lg:max-h-[560px]">
-                  {filteredAnimals.map((animal) => (
-                    <button key={animal.id} onClick={() => { setSelectedId(animal.id); setActiveTab(animal.stage === "egg" ? "egg" : "profile"); }} className={`w-full rounded-2xl border p-3 text-left transition ${selectedId === animal.id ? "border-slate-900 bg-white shadow-sm" : "border-slate-200 bg-white/70 hover:bg-white"}`}>
-                      <div className="flex items-center justify-between gap-2">
-                        <div className="font-semibold">{animal.name}</div>
-                        <span className={`rounded-full px-2 py-1 text-xs ${!isActiveProfile(animal) ? "bg-slate-200 text-slate-700" : animal.stage === "egg" ? "bg-amber-100 text-amber-800" : "bg-emerald-100 text-emerald-800"}`}>{!isActiveProfile(animal) ? `inactive - ${animal.statusInfo?.reason || "archived"}` : animal.stage}</span>
-                      </div>
-                      <div className="mt-1 text-xs text-slate-500">{animal.id} - {animal.qrCode} - {animal.species || "No species"}</div>
-                    </button>
-                  ))}
+                <div className="mt-1 text-xs text-slate-500">
+                  {location.id} - {location.qrCode} - {location.type || "Location"}
                 </div>
-              </CardContent>
-            </Card>
+              </button>
+            );
+          })}
+      </div>
+    )}
+  </CardContent>
+</Card>
           </aside>
 
           <main className="space-y-4">
