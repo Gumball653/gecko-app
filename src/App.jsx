@@ -1039,6 +1039,7 @@ function markSelectedAnimalSprayed() {
     if (locationMatch) {
       setSelectedLocationId(locationMatch.id);
       setOpenedLocationProfileId(locationMatch.id);
+      setSidebarView("locations");
       setActiveTab("locations");
       setScanMessage(`Opened housing profile: ${locationMatch.name}.`);
       addHousingLocationLog(
