@@ -1805,35 +1805,38 @@ function deleteSelectedAnimal() {
                     <Icon name="drop" className="mr-2 h-4 w-4" /> Sprayed today
                   </Button>
                  <Button
-  type="button"
-  onClick={() => {
-    const cleanType = selected.housing?.lastCleaned?.type || "";
+                  type="button"
+                  onClick={() => {
+                    const cleanType = selected.housing?.lastCleaned?.type || "";
 
-    if (!cleanType) {
-      setScanMessage("Select a clean type before saving a cleaning log.");
-      return;
-    }
+                    if (!cleanType) {
+                      setScanMessage("Select a clean type before saving a cleaning log.");
+                      return;
+                    }
 
-    const cleanSummary = `${cleanType} - ${
-      selected.housing?.lastCleaned?.note || "housing cleaned"
-    }`;
+                    const cleanSummary = `${cleanType} - ${
+                      selected.housing?.lastCleaned?.note || "housing cleaned"
+                    }`;
 
-    addLog("cleaning", cleanSummary);
+                    addLog("cleaning", cleanSummary);
 
-    if (selected.housing?.locationId) {
-      addHousingLocationLog(
-        selected.housing.locationId,
-        "cleaning",
-        cleanSummary
-      );
-    }
+                    if (selected.housing?.locationId) {
+                      addHousingLocationLog(
+                        selected.housing.locationId,
+                        "cleaning",
+                        cleanSummary
+                      );
+                    }
 
-    updateSelected("housing.lastCleaned.type", "");
-  }}
-  className="rounded-xl"
->
-  <Icon name="save" className="mr-2 h-4 w-4" /> Save housing log
-</Button>
+                    updateSelectedMany([
+                      { path: "housing.lastCleaned.type", value: "" },
+                      { path: "housing.lastCleaned.note", value: "" },
+                    ]);
+                  }}
+                  className="rounded-xl"
+                >
+                  <Icon name="save" className="mr-2 h-4 w-4" /> Save housing log
+                </Button>
           </div>
           </CardContent>
           </Card>
