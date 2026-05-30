@@ -59,6 +59,43 @@ function formatDateTime(date) {
   })}`;
 }
 
+function calculateAgeFromDate(dateValue) {
+  if (!dateValue) return "";
+
+  const startDate = new Date(`${dateValue}T00:00:00`);
+  if (Number.isNaN(startDate.getTime())) return "";
+
+  const today = new Date();
+  let years = today.getFullYear() - startDate.getFullYear();
+  let months = today.getMonth() - startDate.getMonth();
+  let days = today.getDate() - startDate.getDate();
+
+  if (days < 0) {
+    months -= 1;
+    const previousMonth = new Date(today.getFullYear(), today.getMonth(), 0);
+    days += previousMonth.getDate();
+  }
+
+  if (months < 0) {
+    years -= 1;
+    months += 12;
+  }
+
+  if (years > 0) {
+    return `${years} year${years === 1 ? "" : "s"}, ${months} month${months === 1 ? "" : "s"}`;
+  }
+
+  if (months > 0) {
+    return `${months} month${months === 1 ? "" : "s"}, ${days} day${days === 1 ? "" : "s"}`;
+  }
+
+  return `${days} day${days === 1 ? "" : "s"}`;
+}
+
+function getAnimalAge(animal) {
+  return calculateAgeFromDate(animal?.birthDate || animal?.hatchDate) || animal?.age || "";
+}
+
 function addDays(date, days) {
   const copy = new Date(date);
   copy.setDate(copy.getDate() + days);
