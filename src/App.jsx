@@ -761,6 +761,7 @@ export default function AnimalQrTrackingApp() {
   const [scanValue, setScanValue] = useState("QR-A-001");
   const [scanMessage, setScanMessage] = useState("");
   const [selectedLocationId, setSelectedLocationId] = useState("H-001");
+  const [openedLocationProfileId, setOpenedLocationProfileId] = useState("");
   const [locationDraft, setLocationDraft] = useState({ name: "", type: "Enclosure", note: "" });
   const [locationLogDraft, setLocationLogDraft] = useState({ type: "scan", summary: "" });
   const [groupDraft, setGroupDraft] = useState({ name: "", animalIds: [], notes: "" });
