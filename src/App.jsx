@@ -1671,78 +1671,166 @@ function deleteSelectedAnimal() {
                 </section>
               )}
 
-            {activeTab === "locations" && (
-              <section className="grid gap-4 xl:grid-cols-[1fr_380px]">
-                <Card className="rounded-3xl border-slate-200 shadow-sm">
-                  <CardContent className="space-y-4 p-4 sm:p-5">
-                    <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                      <MobileSectionTitle icon="home" title="Housing locations" subtitle="Each housing location has its own QR code and individual log history." />
-                      <Button
-                        onClick={() => setRealQrProfile(selectedLocation)}
-                        className="rounded-xl"
-                        disabled={!selectedLocation}
-                      >
-                        <Icon name="qr" className="mr-2 h-4 w-4" /> View QR
-                      </Button>
-                    </div>
-                    <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-                      {housingLocations.map((location) => {
-                        const assignedAnimals = animals.filter((animal) => animal.housing?.locationId === location.id);
-                        return (
-                          <button 
-                            key={location.id} 
-                            onClick={() => {
-                              setSelectedLocationId(location.id);
-                              setOpenedLocationProfileId(location.id);
-                            }} 
-                            className={`rounded-2xl border p-4 text-left transition ${selectedLocationId === location.id ? "border-slate-900 bg-white shadow-sm" : "border-slate-200 bg-white/70 hover:bg-white"}`}>
-                            <div className="flex items-start justify-between gap-2">
-                              <div><p className="font-bold">{location.name}</p><p className="text-xs text-slate-500">{location.id} - {location.qrCode} - {location.type}</p></div>
-                              <span className="rounded-full bg-slate-100 px-2 py-1 text-xs">{assignedAnimals.length} animal{assignedAnimals.length === 1 ? "" : "s"}</span>
-                            </div>
-                            <p className="mt-2 text-sm text-slate-600">{location.note || "No location note"}</p>
-                          </button>
-                        );
-                      })}
-                    </div>
-                  </CardContent>
-                </Card>
-                <div className="space-y-4">
-                  <Card className="rounded-3xl border-slate-200 shadow-sm"><CardContent className="space-y-4 p-4 sm:p-5"><MobileSectionTitle icon="plus" title="Add housing location" subtitle="Create printable QR codes for racks, tubs, cages, bins, shelves, or incubator boxes." /><Field label="Location name"><Input value={locationDraft.name} onChange={(event) => setLocationDraft({ ...locationDraft, name: event.target.value })} /></Field><Field label="Location type"><Input value={locationDraft.type} onChange={(event) => setLocationDraft({ ...locationDraft, type: event.target.value })} /></Field><Field label="Location note"><Textarea value={locationDraft.note} onChange={(event) => setLocationDraft({ ...locationDraft, note: event.target.value })} /></Field><Button onClick={addHousingLocation} className="w-full rounded-xl py-5 sm:py-2" disabled={!locationDraft.name.trim()}>Add location</Button></CardContent></Card>
-                  {selectedLocation && <Card className="rounded-3xl border-slate-200 shadow-sm"><CardContent className="space-y-4 p-4 sm:p-5"><MobileSectionTitle icon="qr" title={selectedLocation.name} subtitle={`${selectedLocation.id} - ${selectedLocation.qrCode}`} /><Field label="Location name"><Input value={selectedLocation.name} onChange={(event) => updateHousingLocation(selectedLocation.id, "name", event.target.value)} /></Field><Field label="Location type"><Input value={selectedLocation.type || ""} onChange={(event) => updateHousingLocation(selectedLocation.id, "type", event.target.value)} /></Field><Field label="Location note"><Textarea value={selectedLocation.note || ""} onChange={(event) => updateHousingLocation(selectedLocation.id, "note", event.target.value)} /></Field>
-                    <div className="grid gap-2 sm:grid-cols-3">
-                      <Button
-                        variant="outline"
-                        onClick={() => setRealQrProfile(selectedLocation)}
-                        className="rounded-xl"
-                        disabled={!selectedLocation}
-                      >
-                        <Icon name="qr" className="mr-2 h-4 w-4" /> View / print QR
-                      </Button>
+            {activeTab === "housingProfile" && selectedLocation && (
+  <section className="space-y-4">
+    {(() => {
+      const linkedAnimals = animals.filter(
+        (animal) => animal.housing?.locationId === selectedLocation.id
+      );
 
-                      <Button
-                        onClick={() => addHousingLocationLog(selectedLocation.id)}
-                        className="rounded-xl"
-                      >
-                        <Icon name="save" className="mr-2 h-4 w-4" /> Quick check log
-                      </Button>
+      const firstLinkedAnimal = linkedAnimals[0];
 
-                      <Button
-                        variant="outline"
-                        onClick={deleteSelectedHousingLocation}
-                        className="rounded-xl border-red-200 text-red-700 hover:bg-red-50"
-                        disabled={housingLocations.length <= 1}
-                      >
-                        Delete Location
-                      </Button>
-                    </div>
-                  </CardContent>
-                </Card>}
+      return (
+        <>
+          <div className="grid gap-3 md:grid-cols-5">
+            <StatCard
+              icon="temp"
+              label="Temperature"
+              value={firstLinkedAnimal?.housing?.temperature || "-"}
+            />
 
+            <StatCard
+              icon="drop"
+              label="Humidity"
+              value={firstLinkedAnimal?.housing?.humidity || "-"}
+            />
+
+            <StatCard
+              icon="drop"
+              label="Last sprayed"
+              value={firstLinkedAnimal?.housing?.lastSprayed || "-"}
+            />
+
+            <StatCard
+              icon="home"
+              label="Last cleaned"
+              value={`${firstLinkedAnimal?.housing?.lastCleaned?.date || "-"} - ${
+                firstLinkedAnimal?.housing?.lastCleaned?.type || ""
+              }`}
+            />
+
+            <StatCard
+              icon="qr"
+              label="Housing QR"
+              value={selectedLocation.qrCode || "No location"}
+            />
+          </div>
+
+          <Card className="rounded-3xl border-slate-200 shadow-sm">
+            <CardContent className="grid gap-4 p-4 sm:p-5 md:grid-cols-2">
+              <MobileSectionTitle
+                icon="home"
+                title={selectedLocation.name}
+                subtitle={`${selectedLocation.id} - ${selectedLocation.qrCode}`}
+              />
+
+              <div className="md:col-span-2 rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                <h3 className="mb-2 font-bold">Animals assigned here</h3>
+
+                {linkedAnimals.length === 0 ? (
+                  <p className="text-sm text-slate-500">No animals assigned to this housing.</p>
+                ) : (
+                  <div className="flex flex-wrap gap-2">
+                    {linkedAnimals.map((animal) => (
+                      <button
+                        key={animal.id}
+                        type="button"
+                        onClick={() => {
+                          setSelectedId(animal.id);
+                          setSidebarView("animals");
+                          setActiveTab("housing");
+                        }}
+                        className="rounded-full bg-white px-3 py-1 text-sm font-semibold shadow-sm hover:bg-slate-100"
+                      >
+                        {animal.name || animal.id}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              <Field label="Location name">
+                <Input
+                  value={selectedLocation.name || ""}
+                  onChange={(event) =>
+                    updateHousingLocation(selectedLocation.id, "name", event.target.value)
+                  }
+                />
+              </Field>
+
+              <Field label="Location type">
+                <Input
+                  value={selectedLocation.type || ""}
+                  onChange={(event) =>
+                    updateHousingLocation(selectedLocation.id, "type", event.target.value)
+                  }
+                />
+              </Field>
+
+              <Field label="Location note">
+                <Textarea
+                  value={selectedLocation.note || ""}
+                  onChange={(event) =>
+                    updateHousingLocation(selectedLocation.id, "note", event.target.value)
+                  }
+                />
+              </Field>
+
+              <div className="md:col-span-2 flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-end">
+                <Button
+                  variant="outline"
+                  onClick={() => setRealQrProfile(selectedLocation)}
+                  className="rounded-xl"
+                >
+                  <Icon name="qr" className="mr-2 h-4 w-4" /> View / print QR
+                </Button>
+
+                <Button
+                  onClick={() => addHousingLocationLog(selectedLocation.id)}
+                  className="rounded-xl"
+                >
+                  <Icon name="save" className="mr-2 h-4 w-4" /> Quick check log
+                </Button>
+
+                <Button
+                  variant="outline"
+                  onClick={deleteSelectedHousingLocation}
+                  className="rounded-xl border-red-200 text-red-700 hover:bg-red-50"
+                  disabled={housingLocations.length <= 1}
+                >
+                  Delete Location
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="rounded-3xl border-slate-200 shadow-sm">
+            <CardContent className="space-y-3 p-5">
+              <h3 className="text-xl font-bold">Housing log</h3>
+
+              {(selectedLocation.logs || []).length === 0 && (
+                <p className="text-sm text-slate-500">No housing logs yet.</p>
+              )}
+
+              {(selectedLocation.logs || []).map((log, index) => (
+                <div
+                  key={`${log.date}-${index}`}
+                  className="rounded-2xl border border-slate-200 bg-white p-4"
+                >
+                  <div className="flex items-center justify-between gap-3">
+                    <span className="font-semibold capitalize">{log.type}</span>
+                    <span className="text-sm text-slate-500">{log.date}</span>
+                  </div>
+                  <p className="mt-2 text-sm text-slate-600">{log.summary}</p>
                 </div>
-              </section>
-            )}
-
+              ))}
+            </CardContent>
+          </Card>
+        </>
+      );
+    })()}
+  </section>
+)}
 {activeTab === "photos" && (
   <section className="space-y-4">
     <Card className="rounded-3xl border-slate-200 shadow-sm">
