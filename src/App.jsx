@@ -1569,7 +1569,13 @@ function deleteSelectedAnimal() {
                       {housingLocations.map((location) => {
                         const assignedAnimals = animals.filter((animal) => animal.housing?.locationId === location.id);
                         return (
-                          <button key={location.id} onClick={() => setSelectedLocationId(location.id)} className={`rounded-2xl border p-4 text-left transition ${selectedLocationId === location.id ? "border-slate-900 bg-white shadow-sm" : "border-slate-200 bg-white/70 hover:bg-white"}`}>
+                          <button 
+                            key={location.id} 
+                            onClick={() => {
+                              setSelectedLocationId(location.id);
+                              setOpenedLocationProfileId(location.id);
+                            }} 
+                            className={`rounded-2xl border p-4 text-left transition ${selectedLocationId === location.id ? "border-slate-900 bg-white shadow-sm" : "border-slate-200 bg-white/70 hover:bg-white"}`}>
                             <div className="flex items-start justify-between gap-2">
                               <div><p className="font-bold">{location.name}</p><p className="text-xs text-slate-500">{location.id} - {location.qrCode} - {location.type}</p></div>
                               <span className="rounded-full bg-slate-100 px-2 py-1 text-xs">{assignedAnimals.length} animal{assignedAnimals.length === 1 ? "" : "s"}</span>
