@@ -643,7 +643,7 @@ function blankAnimal(nextId) {
       enclosure: "",
       temperature: "°F",
       humidity: "%",
-      lastCleaned: { date: "", type: "Partial clean", note: "" },
+      lastCleaned: { date: "", type: "", note: "" },
       bedding: "Aspen",
     },  
     logs: [],
